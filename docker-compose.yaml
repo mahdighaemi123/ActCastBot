@@ -1,0 +1,36 @@
+version: '3'
+name: actcast_bot
+
+services:
+  bot:
+    container_name: tg_actcast_bot
+    build: .
+    env_file:
+      - .env
+    networks:
+      - my_bridge
+
+    volumes:
+      - /data:/app/data
+
+  mongodb:
+    image: mongo:6.0
+    container_name: tg_actcast_mongodb
+    restart: unless-stopped
+    ports:
+      - "3003:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo_user
+      MONGO_INITDB_ROOT_PASSWORD: mongo_pass
+      MONGO_INITDB_DATABASE: tg
+    networks:
+      - my_bridge
+
+volumes:
+  mongodb_data:
+
+networks:
+  my_bridge:
+    driver: bridge
