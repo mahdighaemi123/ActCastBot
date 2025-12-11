@@ -237,8 +237,9 @@ router = Router()
 
 
 @router.message(Command("reset"))
-async def cmd_reset(message: types.Message):
+async def cmd_reset(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
+    await state.clear()
 
     was_deleted = await db.delete_user(user_id)
 
