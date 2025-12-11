@@ -18,6 +18,7 @@ from database import db
 from date_picker import DateCallback, get_years_kb, get_months_kb, get_days_kb, get_hours_kb
 from main_bot import main_bot, kb_dynamic_casts
 from config import CONF
+from upload_content import kb_main_menu
 
 router = Router()
 logger = logging.getLogger("broadcast")
@@ -227,7 +228,7 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
         await asyncio.sleep(0.1)
 
         await state.clear()
-        await message.answer("🏠 بازگشت به منوی اصلی:", reply_markup=kb_filter_start())
+        await message.answer("🏠 بازگشت به منوی اصلی:", reply_markup=kb_main_menu())
         return
 
     current = (await state.get_data()).get("messages", [])
