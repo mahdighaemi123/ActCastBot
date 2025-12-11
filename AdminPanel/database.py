@@ -2,11 +2,13 @@ import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import CONF
 
+
 class DatabaseService:
     def __init__(self):
         self.client = AsyncIOMotorClient(CONF["MONGO_URL"])
         self.db = self.client[CONF["DB_NAME"]]
         self.casts = self.db["casts"]
+        self.users = self.db["users"]
 
     async def add_new_cast(self, name: str, chat_id: int, message_id: int):
         new_cast = {
@@ -28,6 +30,20 @@ class DatabaseService:
     async def get_all_cast_names(self):
         cursor = self.casts.find({}, {"name": 1})
         return await cursor.to_list(length=None)
+
+    async def get_users_in_range(self, start_ts: float, end_ts: float):
+        """
+        دریافت کاربران که تاریخ عضویت آن‌ها بین دو عدد Timestamp است.
+        """
+        query = {
+            "created_at": {
+                "$gte": start_ts,
+                "$lte": end_ts
+            }
+        }
+        cursor = self.users.find(query, {"user_id": 1})
+        return await cursor.to_list(length=None)
+
 
 # ساخت یک آبجکت که در بقیه فایل‌ها استفاده شود
 db = DatabaseService()

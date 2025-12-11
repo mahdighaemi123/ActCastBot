@@ -7,11 +7,13 @@ from aiogram.enums import ParseMode
 from config import CONF
 # روتر را از فایل جدید ایمپورت می‌کنیم
 from upload_content import router as upload_router
+from broadcast import router as broadcast_router
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("admin_bot")
+
 
 async def main():
     bot = Bot(
@@ -20,9 +22,10 @@ async def main():
     )
 
     dp = Dispatcher()
-    
+
     # اضافه کردن روتری که ساختیم
     dp.include_router(upload_router)
+    dp.include_router(broadcast_router)  # <--- اضافه شد
 
     logger.info("🚀 Admin Bot Started...")
 

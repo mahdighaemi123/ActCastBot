@@ -39,6 +39,7 @@ def kb_main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📤 آپلود محتوای جدید")],
+            [KeyboardButton(text="📢 ارسال همگانی")],  # <--- اضافه شده
             [KeyboardButton(text="🗑 حذف محتوا")]
         ],
         resize_keyboard=True
