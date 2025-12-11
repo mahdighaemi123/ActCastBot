@@ -229,7 +229,8 @@ https://alimirsadeghi.com/test-congnitive-flexibility/
 
 @router.message(F.text == "🎧 پشتیبانی")
 async def support_handler(message: Message):
-    await message.answer("برای ارتباط با پشتیبانی به آیدی زیر پیام دهید:\n@YourSupportID")
+    keyboard = await kb_dynamic_casts(db)
+    await message.answer("برای ارتباط با پشتیبانی به آیدی زیر پیام دهید:\n@YourSupportID", reply_markup=keyboard)
 
 
 @router.message(Command("reset"))
@@ -275,11 +276,15 @@ async def cast_handler(message: Message, bot: Bot):
 
     # 3. Copy Message
     try:
+        keyboard = await kb_dynamic_casts(db)
+
         await bot.copy_message(
             chat_id=message.from_user.id,
             from_chat_id=src_chat_id,
-            message_id=src_msg_id
+            message_id=src_msg_id,
+            reply_markup=keyboard
         )
+
     except Exception as e:
         logger.error(f"Error copying cast message: {e}")
         await message.answer("خطا در ارسال فایل. لطفا با پشتیبانی تماس بگیرید.")

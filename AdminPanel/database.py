@@ -76,8 +76,6 @@ class DatabaseService:
         cursor = self.casts.find()
         return await cursor.to_list(length=None)
 
-# In database.py -> DatabaseService class
-
     async def save_broadcast_batch(self, batch_id: str, start_ts: float, end_ts: float, total_users: int, messages: list):
         """
         Creates the batch record with initial status 'processing'.
