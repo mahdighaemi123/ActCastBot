@@ -1,0 +1,151 @@
+import asyncio
+import logging
+import os
+from datetime import datetime
+import pandas as pd
+from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
+from aiogram import Bot
+from aiogram.types import FSInputFile
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+
+# ---------------------------------------------------------
+# 1. CONFIGURATION & LOGGING
+# ---------------------------------------------------------
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - [BACKUP SERVICE] - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("backup_service")
+
+# Configuration
+CONF = {
+    "ADMIN_BOT_TOKEN": os.getenv("ADMIN_BOT_TOKEN"),
+    "MONGO_URL": os.getenv("MONGODB_URL", "mongodb://localhost:27017"),
+    "DB_NAME": os.getenv("DB_NAME", "act_cast_db"),
+    # Example: "-1001234567890"
+    "BACKUP_CHANNEL_ID": os.getenv("BACKUP_CHANNEL_ID"),
+    # Default 1 hour (3600s)
+    "BACKUP_INTERVAL": int(os.getenv("BACKUP_INTERVAL", 3600))
+}
+
+# Validation
+if not CONF["ADMIN_BOT_TOKEN"]:
+    raise ValueError("ADMIN_BOT_TOKEN is missing in .env")
+if not CONF["BACKUP_CHANNEL_ID"]:
+    raise ValueError(
+        "BACKUP_CHANNEL_ID is missing in .env (Required for sending backups)")
+
+# ---------------------------------------------------------
+# 2. CORE FUNCTIONS
+# ---------------------------------------------------------
+
+
+async def fetch_users_data():
+    """Fetches all user documents from MongoDB."""
+    client = AsyncIOMotorClient(CONF["MONGO_URL"])
+    db = client[CONF["DB_NAME"]]
+    users_collection = db["users"]
+
+    # Fetch all users
+    users = await users_collection.find().to_list(length=None)
+    client.close()
+    return users
+
+
+def generate_excel(users_data, filename):
+    """Converts user data list to an Excel file using Pandas."""
+    if not users_data:
+        return False
+
+    df = pd.DataFrame(users_data)
+
+    # Optional: Clean up data (e.g., convert ObjectIds to string)
+    if '_id' in df.columns:
+        df['_id'] = df['_id'].astype(str)
+
+    # Optional: Format datetime columns if they exist
+    if 'created_at' in df.columns:
+        df['created_at'] = pd.to_datetime(
+            df['created_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Save to Excel
+    df.to_excel(filename, index=False, engine='openpyxl')
+    return True
+
+
+async def send_backup(filename):
+    """Sends the generated file to the Telegram channel."""
+    bot = Bot(
+        token=CONF["ADMIN_BOT_TOKEN"],
+        default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
+    )
+
+    try:
+        file = FSInputFile(filename)
+        caption = f"📊 **User Database Backup**\n📅 Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+        await bot.send_document(
+            chat_id=CONF["BACKUP_CHANNEL_ID"],
+            document=file,
+            caption=caption
+        )
+        logger.info(f"Backup sent successfully to {CONF['BACKUP_CHANNEL_ID']}")
+    except Exception as e:
+        logger.error(f"Failed to send backup: {e}")
+    finally:
+        await bot.session.close()
+
+# ---------------------------------------------------------
+# 3. MAIN LOOP
+# ---------------------------------------------------------
+
+
+async def run_scheduler():
+    logger.info("Backup Service Started. Waiting for the first interval...")
+
+    # Loop forever
+    while True:
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"users_backup_{timestamp}.xlsx"
+
+            logger.info("Starting backup process...")
+
+            # 1. Fetch Data
+            users = await fetch_users_data()
+            if users:
+                logger.info(f"Fetched {len(users)} users.")
+
+                # 2. Generate Excel
+                success = generate_excel(users, filename)
+
+                if success:
+                    # 3. Send to Telegram
+                    await send_backup(filename)
+
+                    # 4. Cleanup local file
+                    if os.path.exists(filename):
+                        os.remove(filename)
+                        logger.info("Local backup file cleaned up.")
+                else:
+                    logger.warning(
+                        "Could not generate Excel file (Empty data?).")
+            else:
+                logger.info("No users found in database. Skipping backup.")
+
+        except Exception as e:
+            logger.error(f"An error occurred during backup cycle: {e}")
+
+        # Wait for the next interval
+        logger.info(f"Sleeping for {CONF['BACKUP_INTERVAL']} seconds...")
+        await asyncio.sleep(CONF["BACKUP_INTERVAL"])
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(run_scheduler())
+    except KeyboardInterrupt:
+        logger.info("Backup service stopped by user.")

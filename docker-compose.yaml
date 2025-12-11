@@ -21,6 +21,14 @@ services:
     networks:
       - my_bridge
 
+  backup_bot:
+    container_name: tg_actcast_backup_bot
+    build: ./Backup
+    env_file:
+      - .env
+    networks:
+      - my_bridge
+
   mongodb:
     image: mongo:6.0
     container_name: tg_actcast_mongodb
