@@ -258,7 +258,7 @@ https://alimirsadeghi.com/test-congnitive-flexibility/
 #     await message.answer("برای ارتباط با پشتیبانی به آیدی زیر پیام دهید:\n@YourSupportID", reply_markup=keyboard)
 
 
-@router.message(Command("reset"))
+@router.message(Command("reset_my_account"))
 async def cmd_reset(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     await state.clear()
