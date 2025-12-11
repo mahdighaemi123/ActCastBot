@@ -263,13 +263,9 @@ async def cmd_reset(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     await state.clear()
 
-    was_deleted = await db.delete_user(user_id)
+    await db.delete_user(user_id)
 
-    if was_deleted:
-        await message.answer("Account Reset")
-    else:
-        await message.answer("You don't have a profile to reset yet. Type /start to join.")
-
+    await message.answer("Account Reset -> use /start ")
 # ---------------------------------------------------------
 # GENERIC CAST HANDLER
 # ---------------------------------------------------------
