@@ -36,4 +36,7 @@ async def kb_dynamic_casts(db_service):
 
     keyboard.append([KeyboardButton(text="🎧 پشتیبانی")])
 
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+    return ReplyKeyboardMarkup(keyboard=keyboard,
+                               resize_keyboard=True,
+                               one_time_keyboard=False,
+                               selective=False)

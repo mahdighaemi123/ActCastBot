@@ -118,7 +118,7 @@ def kb_phone_request():
     )
 
 
-async def kb_dynamic_casts(db_service: DatabaseService):
+async def kb_dynamic_casts(db_service):
     """
     Dynamically creates a ReplyKeyboard based on 'casts' collection in DB.
     """
@@ -140,8 +140,10 @@ async def kb_dynamic_casts(db_service: DatabaseService):
 
     keyboard.append([KeyboardButton(text="🎧 پشتیبانی")])
 
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
-
+    return ReplyKeyboardMarkup(keyboard=keyboard,
+                               resize_keyboard=True,
+                               one_time_keyboard=False,
+                               selective=False)
 # ---------------------------------------------------------
 # 5. HANDLERS
 # ---------------------------------------------------------
