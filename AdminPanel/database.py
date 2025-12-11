@@ -32,7 +32,6 @@ class DatabaseService:
         cursor = self.casts.find({}, {"name": 1})
         return await cursor.to_list(length=None)
 
-
     async def get_users_in_range(self, start_ts: float, end_ts: float):
         """
         دریافت کاربران با تبدیل Timestamp ورودی به DateTime قابل فهم برای مونگو
@@ -52,6 +51,26 @@ class DatabaseService:
         # print(f"Querying from {start_date} to {end_date}")
 
         cursor = self.users.find(query, {"user_id": 1})
+        return await cursor.to_list(length=None)
+
+    async def save_broadcast_log(self, batch_id: str, user_id: int, message_id: int):
+        """
+        Saves a record of a sent message to allow future deletion.
+        """
+        log_entry = {
+            "batch_id": batch_id,
+            "user_id": user_id,
+            "message_id": message_id,
+            "sent_at": datetime.now()
+        }
+        await self.broadcast_logs.insert_one(log_entry)
+
+    async def get_broadcast_logs(self, batch_id: str):
+        """
+        Retrieves all message IDs associated with a specific broadcast batch.
+        """
+        cursor = self.broadcast_logs.find(
+            {"batch_id": batch_id}, {"user_id": 1, "message_id": 1})
         return await cursor.to_list(length=None)
 
 

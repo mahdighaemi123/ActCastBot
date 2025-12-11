@@ -193,8 +193,7 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
 
                     # 3. Save to DB (batch_id, user_id, message_id)
                     # You must create this function in database.py
-                    if hasattr(db, 'save_broadcast_log'):
-                        await db.save_broadcast_log(batch_id, u['user_id'], sent_msg.message_id)
+                    await db.save_broadcast_log(batch_id, u['user_id'], sent_msg.message_id)
 
                     await asyncio.sleep(0.05)
                 success += 1
@@ -249,9 +248,7 @@ async def delete_broadcast_batch(callback: CallbackQuery):
 
     # 5. Get logs from DB (You must create this function in database.py)
     # It should return a list of dicts: [{'user_id': 123, 'message_id': 456}, ...]
-    logs = []
-    if hasattr(db, 'get_broadcast_logs'):
-        logs = await db.get_broadcast_logs(batch_id)
+    logs = await db.get_broadcast_logs(batch_id)
 
     if not logs:
         await callback.message.edit_text("❌ پیامی برای این شناسه در دیتابیس یافت نشد.")
