@@ -11,15 +11,20 @@ from config import is_admin
 from database import db
 # ایمپورت ابزارهای تاریخ که ساختیم
 from date_picker import DateCallback, get_years_kb, get_months_kb, get_days_kb, get_hours_kb
+from main_bot import main_bot
 
 router = Router()
 
 # --- States ---
+
+
 class BroadcastFlow(StatesGroup):
     choosing_daterange = State()    # در حال کار با دکمه‌های شیشه‌ای
     collecting_messages = State()   # دریافت پیام‌ها
 
 # --- Main Keyboard ---
+
+
 def kb_filter_start():
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -30,20 +35,26 @@ def kb_filter_start():
         resize_keyboard=True
     )
 
+
 def kb_broadcast_actions():
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="✅ ارسال نهایی"), KeyboardButton(text="❌ انصراف")]],
+        keyboard=[[KeyboardButton(text="✅ ارسال نهایی"),
+                   KeyboardButton(text="❌ انصراف")]],
         resize_keyboard=True
     )
 
 # --- Start Handler ---
 
+
 @router.message(F.text == "📢 ارسال همگانی")
 async def start_broadcast(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id): return
+    if not is_admin(message.from_user.id):
+        return
     await message.answer("مخاطبین را انتخاب کنید:", reply_markup=kb_filter_start())
 
 # --- Basic Filters ---
+
+
 @router.message(F.text == "⚡️ همه کاربران")
 async def filter_all(message: Message, state: FSMContext):
     # بازه زمانی از 0 تا الان (یعنی همه)
@@ -53,25 +64,27 @@ async def filter_all(message: Message, state: FSMContext):
 
 # --- Advanced Filter Flow (Start) ---
 
+
 @router.message(F.text == "📅 فیلتر پیشرفته (تاریخ دقیق)")
 async def filter_custom_start(message: Message, state: FSMContext):
     await message.answer("📅 لطفاً **سال شروع** (Start Date) را انتخاب کنید:", reply_markup=get_years_kb("start"))
     # دیتای موقت برای نگه داشتن انتخاب‌ها
-    await state.update_data(temp_sel={}) 
+    await state.update_data(temp_sel={})
     await state.set_state(BroadcastFlow.choosing_daterange)
 
 # --- Handling Callbacks (The UX Magic) ---
+
 
 @router.callback_query(DateCallback.filter())
 async def process_date_selection(callback: CallbackQuery, callback_data: DateCallback, state: FSMContext):
     action = callback_data.action
     value = callback_data.value
-    stage = callback_data.stage # 'start' or 'end'
-    
+    stage = callback_data.stage  # 'start' or 'end'
+
     # گرفتن دیتای فعلی
     data = await state.get_data()
     temp = data.get("temp_sel", {})
-    
+
     # 1. انتخاب سال
     if action == "year":
         temp[f"{stage}_year"] = value
@@ -103,7 +116,7 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
     # 4. انتخاب ساعت (پایان یک مرحله)
     elif action == "hour":
         temp[f"{stage}_hour"] = value
-        
+
         # تبدیل تاریخ انتخابی به Timestamp
         dt_obj = datetime.datetime(
             year=temp[f"{stage}_year"],
@@ -112,7 +125,7 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
             hour=value
         )
         ts = dt_obj.timestamp()
-        
+
         # ذخیره نهایی
         if stage == "start":
             await state.update_data(start_ts=ts)
@@ -121,17 +134,17 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
                 "✅ تاریخ شروع ثبت شد.\n\n🏁 حالا **سال پایان** (End Date) را انتخاب کنید:",
                 reply_markup=get_years_kb("end")
             )
-        else: # stage == "end"
+        else:  # stage == "end"
             await state.update_data(end_ts=ts)
-            
+
             # محاسبه تعداد کاربران
             start_ts = data.get("start_ts")
             end_ts = ts
-            
+
             users = await db.get_users_in_range(start_ts, end_ts)
             count = len(users)
-            
-            await callback.message.delete() # حذف دکمه‌های شیشه‌ای
+
+            await callback.message.delete()  # حذف دکمه‌های شیشه‌ای
             await callback.message.answer(
                 f"✅ فیلتر زمانی کامل شد.\n"
                 f"📅 از: {datetime.datetime.fromtimestamp(start_ts)}\n"
@@ -148,11 +161,13 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
 
 # --- Message Collection & Sending (مانند قبل با تغییرات جزئی) ---
 
+
 @router.message(BroadcastFlow.collecting_messages)
 async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
     if message.text == "❌ انصراف":
         await state.clear()
-        await message.answer("لغو شد.", reply_markup=kb_filter_start()) # برگرد به منوی اول برادکست
+        # برگرد به منوی اول برادکست
+        await message.answer("لغو شد.", reply_markup=kb_filter_start())
         return
 
     if message.text == "✅ ارسال نهایی":
@@ -171,26 +186,27 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
             return
 
         await message.answer(f"🚀 در حال ارسال برای {len(users)} نفر...")
-        
+
         # --- LOOP SENDING ---
         success = 0
         blocked = 0
         for u in users:
             try:
                 for m in msgs:
-                    await bot.copy_message(u['user_id'], m['chat_id'], m['message_id'])
+                    await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'])
                     await asyncio.sleep(0.05)
                 success += 1
             except:
                 blocked += 1
             await asyncio.sleep(0.1)
-        
+
         await message.answer(f"تمام شد.\nموفق: {success}\nناموفق: {blocked}")
         await state.clear()
         return
 
     # ذخیره پیام
     current = (await state.get_data()).get("messages", [])
-    current.append({"chat_id": message.chat.id, "message_id": message.message_id})
+    current.append({"chat_id": message.chat.id,
+                   "message_id": message.message_id})
     await state.update_data(messages=current)
     await message.answer("📥 دریافت شد.")
