@@ -18,7 +18,8 @@ from aiogram.enums import ParseMode
 from aiogram.types import (
     Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 )
-
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram import F
 from datetime import datetime
 # ---------------------------------------------------------
 # 1. CONFIGURATION & LOGGING
@@ -224,17 +225,30 @@ async def process_phone(message: Message, state: FSMContext):
     except Exception as e:
         logger.error(f"video send error: {e}")
 
-    final_text = """قدم اول پیش از شروع اولین جلسه انجام تست انعطاف پذیری هستش. ✅ جهت دریافت تست روی تست ضربه بزنید.
+    kb_test = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📝 تست", callback_data="send_test_msg")]
+        ]
+    )
 
-و بعدش که روی دکمه تست زدن این ارسال بشه
+    final_text = """قدم اول پیش از شروع اولین جلسه انجام تست انعطاف پذیری هستش. ✅ جهت دریافت تست روی دکمه زیر ضربه بزنید."""
 
-لینک تست :
-https://alimirsadeghi.com/test-congnitive-flexibility/
-نتیجه تستتون رو اسکرین شات بگیرین یا یک جا ذخیره کنید تا پس از پایان دوره میزان بهبود آن را متوجه شوید"""
-    await message.answer(final_text, reply_markup=keyboard)
-
+    # Send message with the keyboard
+    await message.answer(final_text, reply_markup=kb_test)
     await state.set_state(UserFlow.main_menu)
 
+
+@router.callback_query(F.data == "send_test_msg")
+async def process_test_callback(callback: CallbackQuery):
+    """
+    This function runs when the user clicks the 'تست' button.
+    """
+
+    await callback.message.answer("""لینک تست :
+https://alimirsadeghi.com/test-congnitive-flexibility/
+نتیجه تستتون رو اسکرین شات بگیرین یا یک جا ذخیره کنید تا پس از پایان دوره میزان بهبود آن را متوجه شوید""")
+
+    await callback.answer()
 
 # @router.message(F.text == "🎧 پشتیبانی")
 # async def support_handler(message: Message):
