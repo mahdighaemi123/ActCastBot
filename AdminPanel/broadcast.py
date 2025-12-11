@@ -190,6 +190,7 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
         batch_id = str(uuid.uuid4())
 
         await message.answer(f"🚀 در حال ارسال برای {len(users)} نفر...\n🆔 شناسه ارسال: `{batch_id}`")
+        await db.save_broadcast_batch(batch_id, start_ts, end_ts, len(users), msgs)
 
         success = 0
         blocked = 0
