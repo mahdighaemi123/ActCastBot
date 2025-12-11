@@ -138,7 +138,7 @@ async def kb_dynamic_casts(db_service):
     if row:
         keyboard.append(row)
 
-    keyboard.append([KeyboardButton(text="🎧 پشتیبانی")])
+    # keyboard.append([KeyboardButton(text="🎧 پشتیبانی")])
 
     return ReplyKeyboardMarkup(keyboard=keyboard,
                                resize_keyboard=True,
@@ -236,10 +236,10 @@ https://alimirsadeghi.com/test-congnitive-flexibility/
     await state.set_state(UserFlow.main_menu)
 
 
-@router.message(F.text == "🎧 پشتیبانی")
-async def support_handler(message: Message):
-    keyboard = await kb_dynamic_casts(db)
-    await message.answer("برای ارتباط با پشتیبانی به آیدی زیر پیام دهید:\n@YourSupportID", reply_markup=keyboard)
+# @router.message(F.text == "🎧 پشتیبانی")
+# async def support_handler(message: Message):
+#     keyboard = await kb_dynamic_casts(db)
+#     await message.answer("برای ارتباط با پشتیبانی به آیدی زیر پیام دهید:\n@YourSupportID", reply_markup=keyboard)
 
 
 @router.message(Command("reset"))
@@ -296,7 +296,7 @@ async def cast_handler(message: Message, bot: Bot):
 
     except Exception as e:
         logger.error(f"Error copying cast message: {e}")
-        await message.answer("خطا در ارسال فایل. لطفا با پشتیبانی تماس بگیرید.")
+        # await message.answer("خطا در ارسال فایل. لطفا با پشتیبانی تماس بگیرید.")
 
 
 # ---------------------------------------------------------

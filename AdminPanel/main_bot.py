@@ -34,7 +34,7 @@ async def kb_dynamic_casts(db_service):
     if row:
         keyboard.append(row)
 
-    keyboard.append([KeyboardButton(text="🎧 پشتیبانی")])
+    # keyboard.append([KeyboardButton(text="🎧 پشتیبانی")])
 
     return ReplyKeyboardMarkup(keyboard=keyboard,
                                resize_keyboard=True,
