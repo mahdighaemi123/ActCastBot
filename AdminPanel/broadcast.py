@@ -16,9 +16,8 @@ import logging
 from config import is_admin
 from database import db
 from date_picker import DateCallback, get_years_kb, get_months_kb, get_days_kb, get_hours_kb
-from main_bot import main_bot
+from main_bot import main_bot, kb_dynamic_casts
 from config import CONF
-from broadcast import kb_dynamic_casts
 
 router = Router()
 logger = logging.getLogger("broadcast")
