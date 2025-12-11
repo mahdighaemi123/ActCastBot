@@ -10,6 +10,7 @@ class DatabaseService:
         self.db = self.client[CONF["DB_NAME"]]
         self.casts = self.db["casts"]
         self.users = self.db["users"]
+        self.broadcast_logs = self.db["broadcast_logs"]
 
     async def add_new_cast(self, name: str, chat_id: int, message_id: int):
         new_cast = {
