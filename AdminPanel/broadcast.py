@@ -2,26 +2,32 @@
 import asyncio
 import datetime
 import time
+import uuid  # Imported for random ID
 from aiogram import Router, F, Bot
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, CallbackQuery, ReplyKeyboardRemove
+# Added Inline imports
+from aiogram.types import (
+    Message, ReplyKeyboardMarkup, KeyboardButton,
+    CallbackQuery, ReplyKeyboardRemove,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 import logging
 from config import is_admin
 from database import db
-# ایمپورت ابزارهای تاریخ که ساختیم
 from date_picker import DateCallback, get_years_kb, get_months_kb, get_days_kb, get_hours_kb
 from main_bot import main_bot
 from config import CONF
+
 router = Router()
+logger = logging.getLogger("broadcast")
 
 # --- States ---
-logger = logging.getLogger("admin_bot")
 
 
 class BroadcastFlow(StatesGroup):
-    choosing_daterange = State()    # در حال کار با دکمه‌های شیشه‌ای
-    collecting_messages = State()   # دریافت پیام‌ها
+    choosing_daterange = State()
+    collecting_messages = State()
 
 # --- Main Keyboard ---
 
@@ -58,7 +64,6 @@ async def start_broadcast(message: Message, state: FSMContext):
 
 @router.message(F.text == "⚡️ همه کاربران")
 async def filter_all(message: Message, state: FSMContext):
-    # بازه زمانی از 0 تا الان (یعنی همه)
     await state.update_data(start_ts=0, end_ts=time.time())
     await message.answer("✅ همه کاربران انتخاب شدند.\nپیام‌های خود را ارسال کنید:", reply_markup=kb_broadcast_actions())
     await state.set_state(BroadcastFlow.collecting_messages)
@@ -69,24 +74,21 @@ async def filter_all(message: Message, state: FSMContext):
 @router.message(F.text == "📅 فیلتر پیشرفته (تاریخ دقیق)")
 async def filter_custom_start(message: Message, state: FSMContext):
     await message.answer("📅 لطفاً **سال شروع** (Start Date) را انتخاب کنید:", reply_markup=get_years_kb("start"))
-    # دیتای موقت برای نگه داشتن انتخاب‌ها
     await state.update_data(temp_sel={})
     await state.set_state(BroadcastFlow.choosing_daterange)
 
-# --- Handling Callbacks (The UX Magic) ---
+# --- Handling Callbacks ---
 
 
 @router.callback_query(DateCallback.filter())
 async def process_date_selection(callback: CallbackQuery, callback_data: DateCallback, state: FSMContext):
     action = callback_data.action
     value = callback_data.value
-    stage = callback_data.stage  # 'start' or 'end'
+    stage = callback_data.stage
 
-    # گرفتن دیتای فعلی
     data = await state.get_data()
     temp = data.get("temp_sel", {})
 
-    # 1. انتخاب سال
     if action == "year":
         temp[f"{stage}_year"] = value
         await state.update_data(temp_sel=temp)
@@ -95,7 +97,6 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
             reply_markup=get_months_kb(value, stage)
         )
 
-    # 2. انتخاب ماه
     elif action == "month":
         temp[f"{stage}_month"] = value
         year = temp[f"{stage}_year"]
@@ -105,7 +106,6 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
             reply_markup=get_days_kb(year, value, stage)
         )
 
-    # 3. انتخاب روز
     elif action == "day":
         temp[f"{stage}_day"] = value
         await state.update_data(temp_sel=temp)
@@ -114,11 +114,8 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
             reply_markup=get_hours_kb(stage)
         )
 
-    # 4. انتخاب ساعت (پایان یک مرحله)
     elif action == "hour":
         temp[f"{stage}_hour"] = value
-
-        # تبدیل تاریخ انتخابی به Timestamp
         dt_obj = datetime.datetime(
             year=temp[f"{stage}_year"],
             month=temp[f"{stage}_month"],
@@ -127,25 +124,20 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
         )
         ts = dt_obj.timestamp()
 
-        # ذخیره نهایی
         if stage == "start":
             await state.update_data(start_ts=ts)
-            # حالا برویم سراغ تاریخ پایان
             await callback.message.edit_text(
                 "✅ تاریخ شروع ثبت شد.\n\n🏁 حالا **سال پایان** (End Date) را انتخاب کنید:",
                 reply_markup=get_years_kb("end")
             )
-        else:  # stage == "end"
+        else:
             await state.update_data(end_ts=ts)
-
-            # محاسبه تعداد کاربران
             start_ts = data.get("start_ts")
             end_ts = ts
-
             users = await db.get_users_in_range(start_ts, end_ts)
             count = len(users)
 
-            await callback.message.delete()  # حذف دکمه‌های شیشه‌ای
+            await callback.message.delete()
             await callback.message.answer(
                 f"✅ فیلتر زمانی کامل شد.\n"
                 f"📅 از: {datetime.datetime.fromtimestamp(start_ts)}\n"
@@ -155,19 +147,17 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
                 reply_markup=kb_broadcast_actions()
             )
             await state.set_state(BroadcastFlow.collecting_messages)
-            # لیست پیام‌ها رو خالی کن برای شروع جدید
             await state.update_data(messages=[])
 
     await callback.answer()
 
-# --- Message Collection & Sending (مانند قبل با تغییرات جزئی) ---
+# --- Message Collection & Sending ---
 
 
 @router.message(BroadcastFlow.collecting_messages)
 async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
     if message.text == "❌ انصراف":
         await state.clear()
-        # برگرد به منوی اول برادکست
         await message.answer("لغو شد.", reply_markup=kb_filter_start())
         return
 
@@ -186,15 +176,26 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
             await message.answer("کاربری پیدا نشد.")
             return
 
-        await message.answer(f"🚀 در حال ارسال برای {len(users)} نفر...")
+        # 1. Create a random batch ID for this broadcast
+        batch_id = str(uuid.uuid4())
 
-        # --- LOOP SENDING ---
+        await message.answer(f"🚀 در حال ارسال برای {len(users)} نفر...\n🆔 شناسه ارسال: `{batch_id}`")
+
         success = 0
         blocked = 0
+
+        # --- LOOP SENDING ---
         for u in users:
             try:
                 for m in msgs:
-                    await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'])
+                    # 2. Send message
+                    sent_msg = await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'])
+
+                    # 3. Save to DB (batch_id, user_id, message_id)
+                    # You must create this function in database.py
+                    if hasattr(db, 'save_broadcast_log'):
+                        await db.save_broadcast_log(batch_id, u['user_id'], sent_msg.message_id)
+
                     await asyncio.sleep(0.05)
                 success += 1
             except Exception as e:
@@ -203,7 +204,20 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
 
             await asyncio.sleep(0.1)
 
-        await message.answer(f"تمام شد.\nموفق: {success}\nناموفق: {blocked}")
+        # 4. Create Delete Button for Admin
+        delete_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🗑 حذف پیام‌های این ارسال (Delete All)", callback_data=f"del_batch:{batch_id}")]
+        ])
+
+        await message.answer(
+            f"✅ تمام شد.\n"
+            f"🆔 Batch ID: `{batch_id}`\n"
+            f"🟢 موفق: {success}\n"
+            f"🔴 ناموفق: {blocked}\n\n"
+            f"⚠️ اگر اشتباهی رخ داده، با دکمه زیر می‌توانید پیام‌های ارسال شده را حذف کنید:",
+            reply_markup=delete_kb
+        )
         await state.clear()
         return
 
@@ -222,3 +236,39 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
 
     await state.update_data(messages=current)
     await message.answer("📥 دریافت شد.")
+
+
+# --- NEW HANDLER: Delete the broadcast batch ---
+@router.callback_query(F.data.startswith("del_batch:"))
+async def delete_broadcast_batch(callback: CallbackQuery):
+    # Extract batch_id
+    batch_id = callback.data.split(":")[1]
+
+    await callback.answer("⏳ در حال حذف پیام‌ها...", show_alert=False)
+    await callback.message.edit_text(f"🗑 در حال حذف پیام‌های شناسه `{batch_id}` ... لطفا صبر کنید.")
+
+    # 5. Get logs from DB (You must create this function in database.py)
+    # It should return a list of dicts: [{'user_id': 123, 'message_id': 456}, ...]
+    logs = []
+    if hasattr(db, 'get_broadcast_logs'):
+        logs = await db.get_broadcast_logs(batch_id)
+
+    if not logs:
+        await callback.message.edit_text("❌ پیامی برای این شناسه در دیتابیس یافت نشد.")
+        return
+
+    deleted_count = 0
+    for log in logs:
+        try:
+            await main_bot.delete_message(chat_id=log['user_id'], message_id=log['message_id'])
+            deleted_count += 1
+            await asyncio.sleep(0.03)  # Flood limit prevention
+        except Exception as e:
+            logger.error(
+                f"Failed to delete {log['message_id']} for {log['user_id']}: {e}")
+
+    await callback.message.edit_text(
+        f"✅ عملیات حذف پایان یافت.\n\n"
+        f"🆔 Batch ID: `{batch_id}`\n"
+        f"🗑 تعداد حذف شده: {deleted_count} از {len(logs)}"
+    )
