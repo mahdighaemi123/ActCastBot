@@ -233,9 +233,6 @@ async def support_handler(message: Message):
     await message.answer("برای ارتباط با پشتیبانی به آیدی زیر پیام دهید:\n@YourSupportID")
 
 
-router = Router()
-
-
 @router.message(Command("reset"))
 async def cmd_reset(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
