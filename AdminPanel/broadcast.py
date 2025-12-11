@@ -240,7 +240,9 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
     })
 
     await state.update_data(messages=current)
-    await message.answer("📥 دریافت شد.")
+    await message.answer("📥 دریافت شد.", reply_markup=kb_broadcast_actions(), resize_keyboard=True,
+                         one_time_keyboard=False,
+                         selective=False)
 
 
 # --- NEW HANDLER: Delete the broadcast batch ---
