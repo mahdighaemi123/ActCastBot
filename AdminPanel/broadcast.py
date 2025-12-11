@@ -39,7 +39,9 @@ def kb_filter_start():
             [KeyboardButton(text="⚡️ همه کاربران")],
             [KeyboardButton(text="❌ انصراف")]
         ],
-        resize_keyboard=True
+        resize_keyboard=True,
+        one_time_keyboard=False,
+        selective=False
     )
 
 
@@ -47,7 +49,9 @@ def kb_broadcast_actions():
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="✅ ارسال نهایی"),
                    KeyboardButton(text="❌ انصراف")]],
-        resize_keyboard=True
+        resize_keyboard=True,
+        one_time_keyboard=False,
+        selective=False
     )
 
 # --- Start Handler ---
