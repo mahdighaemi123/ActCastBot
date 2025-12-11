@@ -1,3 +1,5 @@
+from aiogram.filters import Command
+from aiogram import Router, types
 import asyncio
 import logging
 import os
@@ -41,6 +43,8 @@ if not CONF["BOT_TOKEN"]:
 # ---------------------------------------------------------
 # 2. DATABASE SERVICE
 # ---------------------------------------------------------
+
+
 class DatabaseService:
     def __init__(self):
         self.client = AsyncIOMotorClient(CONF["MONGO_URL"])
@@ -75,6 +79,13 @@ class DatabaseService:
         """Finds a specific cast by its button name."""
         return await self.casts.find_one({"name": cast_name})
 
+    async def delete_user(self, user_id: int) -> bool:
+        """
+        Completely removes the user document from the database.
+        Returns True if a document was deleted, False otherwise.
+        """
+        result = await self.users.delete_one({"user_id": user_id})
+        return result.deleted_count > 0
 # ---------------------------------------------------------
 # 3. FSM STATES
 # ---------------------------------------------------------
@@ -163,7 +174,7 @@ async def cmd_start(message: Message, state: FSMContext):
         "به اکت‌کست خوش آمدی 🌿🎧\n\n"
         "تبریک می‌گم که اولین قدمت رو در مسیر بهبود زندگی برداشتی.♥️\n"
         "اینجا کمکت می‌کنم با رویکرد اکت، انعطاف‌پذیری روانی‌ات رو بیشتر کنی و در مسیر ارزش‌هات پیش بری. ✨\n"
-        "📌برای شروع روی کلمه «شروع» ضربه بزن."
+        "📌برای شروع روی کلمه «شروع» در پایین صفحه ضربه بزن."
     )
 
     await message.answer(welcome_text, reply_markup=kb_start_button())
@@ -196,15 +207,24 @@ async def process_phone(message: Message, state: FSMContext):
         "profile_completed": True
     })
 
-    final_text = (
-        "اینجا قراره قدم‌به‌قدم با رویکرد اکت یاد بگیری چطور وسطِ واقعیت‌های زندگی، انعطاف‌پذیرتر و آگاهانه‌تر حرکت کنی.\n"
-        "قسمت اول به‌زودی منتشر می‌شه. 🎧🌿"
-    )
-
     # Generate Dynamic Keyboard
     keyboard = await kb_dynamic_casts(db)
 
+    final_text = (
+        "اینجا قراره قدم‌به‌قدم با رویکرد اکت یاد بگیری چطور وسطِ واقعیت‌های زندگی، انعطاف‌پذیرتر و آگاهانه‌تر حرکت کنی.\n"
+    )
     await message.answer(final_text, reply_markup=keyboard)
+
+    final_text = (
+        "در اکت‌کست قرار هستش یک کار بزرگ باهم انجام دهیم.♥️✨"
+    )
+    await message.answer_video("BAACAgQAAxkBAAJqy2k6s2kc7v8ob6_OGFEzUw926MipAAIiIAACK0y4UX49xjpn-nNNNgQ", caption=final_text, reply_markup=keyboard)
+
+    final_text = """قدم اول پیش از شروع اولین جلسه انجام تست انعطاف پذیری هستش. ✅ جهت انجام تست روی لینک زیر ضربه بزنید:
+https://alimirsadeghi.com/test-congnitive-flexibility/
+نتیجه تستتون رو اسکرین شات بگیرین یا یک جا ذخیره کنید تا پس از پایان دوره  میزان بهبود آن را متوجه شوید"""
+    await message.answer(final_text, reply_markup=keyboard)
+
     await state.set_state(UserFlow.main_menu)
 
 
@@ -213,9 +233,25 @@ async def support_handler(message: Message):
     await message.answer("برای ارتباط با پشتیبانی به آیدی زیر پیام دهید:\n@YourSupportID")
 
 
+router = Router()
+
+
+@router.message(Command("reset"))
+async def cmd_reset(message: types.Message):
+    user_id = message.from_user.id
+
+    was_deleted = await db.delete_user(user_id)
+
+    if was_deleted:
+        await message.answer("Account Reset")
+    else:
+        await message.answer("You don't have a profile to reset yet. Type /start to join.")
+
 # ---------------------------------------------------------
 # GENERIC CAST HANDLER
 # ---------------------------------------------------------
+
+
 @router.message(UserFlow.main_menu)
 async def cast_handler(message: Message, bot: Bot):
     """
