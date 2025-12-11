@@ -6,7 +6,7 @@ from aiogram import Router, F, Bot
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, CallbackQuery, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-
+import logging
 from config import is_admin
 from database import db
 # ایمپورت ابزارهای تاریخ که ساختیم
@@ -16,6 +16,7 @@ from main_bot import main_bot
 router = Router()
 
 # --- States ---
+logger = logging.getLogger("admin_bot")
 
 
 class BroadcastFlow(StatesGroup):
@@ -196,8 +197,10 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
                     await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'])
                     await asyncio.sleep(0.05)
                 success += 1
-            except:
+            except Exception as e:
+                logger.error(f"single send error: {e}")
                 blocked += 1
+
             await asyncio.sleep(0.1)
 
         await message.answer(f"تمام شد.\nموفق: {success}\nناموفق: {blocked}")
