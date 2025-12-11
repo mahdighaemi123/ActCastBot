@@ -159,7 +159,7 @@ async def process_content(message: Message, state: FSMContext, bot: Bot):
         # 2. Store the ID of the message in the CHANNEL
         await state.update_data(
             source_message_id=sent_message.message_id,
-            source_chat_id=sent_message.chat.id
+            source_chat_id=CONF["STORAGE_CHANNEL_ID"]
         )
 
         await message.answer(
