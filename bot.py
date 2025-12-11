@@ -124,12 +124,10 @@ async def kb_dynamic_casts(db_service: DatabaseService):
     """
     casts = await db_service.get_all_casts()
 
-    # Create buttons list
     buttons = []
     for cast in casts:
         buttons.append(KeyboardButton(text=cast.get("name", "Cast")))
 
-    # Arrange buttons in rows of 2
     keyboard = []
     row = []
     for btn in buttons:
@@ -140,7 +138,6 @@ async def kb_dynamic_casts(db_service: DatabaseService):
     if row:
         keyboard.append(row)
 
-    # Optional: Add a Support or Profile button at the bottom
     keyboard.append([KeyboardButton(text="🎧 پشتیبانی")])
 
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)

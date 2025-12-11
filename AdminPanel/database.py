@@ -71,6 +71,10 @@ class DatabaseService:
             {"batch_id": batch_id}, {"user_id": 1, "message_id": 1})
         return await cursor.to_list(length=None)
 
+    async def get_all_casts(self):
+        """Fetches all casts to generate buttons."""
+        cursor = self.casts.find()
+        return await cursor.to_list(length=None)
 
 # ساخت یک آبجکت که در بقیه فایل‌ها استفاده شود
 db = DatabaseService()
