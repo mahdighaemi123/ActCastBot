@@ -213,7 +213,7 @@ async def process_phone(message: Message, state: FSMContext):
     final_text = (
         "اینجا قراره قدم‌به‌قدم با رویکرد اکت یاد بگیری چطور وسطِ واقعیت‌های زندگی، انعطاف‌پذیرتر و آگاهانه‌تر حرکت کنی.\n"
     )
-    await message.answer(final_text, reply_markup=keyboard)
+    await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
 
     try:
 
