@@ -224,9 +224,13 @@ async def process_phone(message: Message, state: FSMContext):
     except Exception as e:
         logger.error(f"video send error: {e}")
 
-    final_text = """قدم اول پیش از شروع اولین جلسه انجام تست انعطاف پذیری هستش. ✅ جهت انجام تست روی لینک زیر ضربه بزنید:
+    final_text = """قدم اول پیش از شروع اولین جلسه انجام تست انعطاف پذیری هستش. ✅ جهت دریافت تست روی تست ضربه بزنید.
+
+و بعدش که روی دکمه تست زدن این ارسال بشه
+
+لینک تست :
 https://alimirsadeghi.com/test-congnitive-flexibility/
-نتیجه تستتون رو اسکرین شات بگیرین یا یک جا ذخیره کنید تا پس از پایان دوره  میزان بهبود آن را متوجه شوید"""
+نتیجه تستتون رو اسکرین شات بگیرین یا یک جا ذخیره کنید تا پس از پایان دوره میزان بهبود آن را متوجه شوید"""
     await message.answer(final_text, reply_markup=keyboard)
 
     await state.set_state(UserFlow.main_menu)
