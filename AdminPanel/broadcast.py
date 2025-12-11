@@ -12,7 +12,7 @@ from database import db
 # ایمپورت ابزارهای تاریخ که ساختیم
 from date_picker import DateCallback, get_years_kb, get_months_kb, get_days_kb, get_hours_kb
 from main_bot import main_bot
-
+from config import CONF
 router = Router()
 
 # --- States ---
@@ -207,9 +207,18 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
         await state.clear()
         return
 
-    # ذخیره پیام
     current = (await state.get_data()).get("messages", [])
-    current.append({"chat_id": message.chat.id,
-                   "message_id": message.message_id})
+
+    sent_msg = await bot.copy_message(
+        chat_id=CONF["STORAGE_CHANNEL_ID"],
+        from_chat_id=message.chat.id,
+        message_id=message.message_id
+    )
+
+    current.append({
+        "chat_id": CONF["STORAGE_CHANNEL_ID"],
+        "message_id": sent_msg.message_id
+    })
+
     await state.update_data(messages=current)
     await message.answer("📥 دریافت شد.")
