@@ -65,7 +65,9 @@ async def start_broadcast(message: Message, state: FSMContext):
 @router.message(F.text == "⚡️ همه کاربران")
 async def filter_all(message: Message, state: FSMContext):
     await state.update_data(start_ts=0, end_ts=time.time())
-    await message.answer("✅ همه کاربران انتخاب شدند.\nپیام‌های خود را ارسال کنید:", reply_markup=kb_broadcast_actions())
+    await message.answer("✅ همه کاربران انتخاب شدند.\nپیام‌های خود را ارسال کنید:", reply_markup=kb_broadcast_actions(), resize_keyboard=True,
+                         one_time_keyboard=False,
+                         selective=False)
     await state.set_state(BroadcastFlow.collecting_messages)
 
 # --- Advanced Filter Flow (Start) ---
@@ -144,7 +146,10 @@ async def process_date_selection(callback: CallbackQuery, callback_data: DateCal
                 f"📅 تا: {datetime.datetime.fromtimestamp(end_ts)}\n\n"
                 f"👥 تعداد کاربران پیدا شده: **{count}** نفر\n\n"
                 "👇 حالا پیام‌های خود را ارسال کنید:",
-                reply_markup=kb_broadcast_actions()
+                reply_markup=kb_broadcast_actions(),
+                resize_keyboard=True,
+                one_time_keyboard=False,
+                selective=False
             )
             await state.set_state(BroadcastFlow.collecting_messages)
             await state.update_data(messages=[])
