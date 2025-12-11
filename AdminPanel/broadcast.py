@@ -189,7 +189,8 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
             try:
                 for m in msgs:
                     # 2. Send message
-                    sent_msg = await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'], reply_markup=kb_dynamic_casts)
+                    keyboards = await kb_dynamic_casts(db)
+                    sent_msg = await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'], reply_markup=keyboards)
                     await db.save_broadcast_log(batch_id, u['user_id'], sent_msg.message_id)
 
                     await asyncio.sleep(0.05)
