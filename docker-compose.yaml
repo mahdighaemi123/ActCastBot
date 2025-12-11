@@ -13,6 +13,14 @@ services:
     volumes:
       - /data:/app/data
 
+  admin_bot:
+    container_name: tg_actcast_admin_bot
+    build: ./AdminPanel
+    env_file:
+      - .env
+    networks:
+      - my_bridge
+
   mongodb:
     image: mongo:6.0
     container_name: tg_actcast_mongodb
@@ -30,6 +38,7 @@ services:
 
 volumes:
   mongodb_data:
+
 
 networks:
   my_bridge:
