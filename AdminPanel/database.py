@@ -33,26 +33,26 @@ class DatabaseService:
         return await cursor.to_list(length=None)
 
 
-async def get_users_in_range(self, start_ts: float, end_ts: float):
-    """
-    دریافت کاربران با تبدیل Timestamp ورودی به DateTime قابل فهم برای مونگو
-    """
-    # --- تبدیل Timestamp به Datetime ---
-    start_date = datetime.fromtimestamp(start_ts)
-    end_date = datetime.fromtimestamp(end_ts)
+    async def get_users_in_range(self, start_ts: float, end_ts: float):
+        """
+        دریافت کاربران با تبدیل Timestamp ورودی به DateTime قابل فهم برای مونگو
+        """
+        # --- تبدیل Timestamp به Datetime ---
+        start_date = datetime.fromtimestamp(start_ts)
+        end_date = datetime.fromtimestamp(end_ts)
 
-    query = {
-        "created_at": {
-            "$gte": start_date,  # مقایسه تاریخ با تاریخ
-            "$lte": end_date
+        query = {
+            "created_at": {
+                "$gte": start_date,  # مقایسه تاریخ با تاریخ
+                "$lte": end_date
+            }
         }
-    }
 
-    # لاگ برای دیباگ (اختیاری)
-    # print(f"Querying from {start_date} to {end_date}")
+        # لاگ برای دیباگ (اختیاری)
+        # print(f"Querying from {start_date} to {end_date}")
 
-    cursor = self.users.find(query, {"user_id": 1})
-    return await cursor.to_list(length=None)
+        cursor = self.users.find(query, {"user_id": 1})
+        return await cursor.to_list(length=None)
 
 
 # ساخت یک آبجکت که در بقیه فایل‌ها استفاده شود
