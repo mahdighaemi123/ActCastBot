@@ -1,9 +1,10 @@
+from aiogram.filters import Command
 from aiogram import Router, F, Bot
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import CommandStart
-
+import datetime
 # ایمپورت کردن موارد لازم از فایل‌های دیگر
 from config import CONF, is_admin
 from database import db
@@ -61,6 +62,17 @@ async def cmd_start(message: Message):
         "مدیریت فایل‌ها و دکمه‌ها:",
         reply_markup=kb_main_menu()
     )
+
+
+# ... existing code ...
+
+
+@router.message(Command("time"))
+async def cmd_server_time(message: Message):
+    now = datetime.datetime.now()
+    # Format: YYYY-MM-DD HH:MM:SS
+    time_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    await message.answer(f"🕒 Server Time: `{time_str}`")
 
 
 @router.message(F.text == "❌ انصراف")

@@ -212,6 +212,9 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
 
             await asyncio.sleep(0.1)
 
+
+        await db.update_broadcast_batch_stats(batch_id, success, blocked)
+
         # 4. Create Delete Button for Admin
         delete_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(

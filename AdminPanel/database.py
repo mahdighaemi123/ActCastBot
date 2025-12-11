@@ -76,21 +76,40 @@ class DatabaseService:
         cursor = self.casts.find()
         return await cursor.to_list(length=None)
 
+# In database.py -> DatabaseService class
+
     async def save_broadcast_batch(self, batch_id: str, start_ts: float, end_ts: float, total_users: int, messages: list):
         """
-        Saves the metadata of the broadcast batch.
+        Creates the batch record with initial status 'processing'.
         """
         batch_data = {
             "batch_id": batch_id,
             "filter_start_ts": start_ts,
             "filter_end_ts": end_ts,
-            "total_users": total_users,
+            "total_users_target": total_users,
+            "messages_data": messages,  # Optional: save what messages were sent
             "created_at": datetime.now(),
-            "status": "sent",
-            "messages": messages
+            "status": "processing",  # 🟡 Initial status
+            "sent_count": 0,
+            "blocked_count": 0
         }
-        # Saves to a new collection 'broadcast_batches'
         await self.db["broadcast_batches"].insert_one(batch_data)
+
+    async def update_broadcast_batch_stats(self, batch_id: str, success: int, blocked: int):
+        """
+        Updates the batch status to 'completed' with final counts.
+        """
+        await self.db["broadcast_batches"].update_one(
+            {"batch_id": batch_id},
+            {
+                "$set": {
+                    "status": "completed",      # 🟢 Final status
+                    "sent_count": success,
+                    "blocked_count": blocked,
+                    "finished_at": datetime.now()
+                }
+            }
+        )
 
 
 # ساخت یک آبجکت که در بقیه فایل‌ها استفاده شود
