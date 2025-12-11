@@ -8,7 +8,7 @@ import datetime
 # ایمپورت کردن موارد لازم از فایل‌های دیگر
 from config import CONF, is_admin
 from database import db
-
+from aiogram.utils.keyboard import InlineKeyboardBuilder  # <--- New
 import logging
 
 logger = logging.getLogger("admin_bot")
@@ -139,33 +139,81 @@ async def process_name(message: Message, state: FSMContext):
 # --- Delete Flow ---
 
 
+def kb_delete_list(casts_list):
+    """
+    Creates an inline keyboard with a delete button for each item.
+    """
+    builder = InlineKeyboardBuilder()
+
+    for cast in casts_list:
+        # callback_data format: "del:<name>"
+        # Note: Telegram callback_data has a 64-byte limit.
+        # If names are very long, it's better to use IDs from the database.
+        builder.button(text=f"❌ {cast['name']}",
+                       callback_data=f"del:{cast['name']}")
+
+    # Add a cancel/close button at the bottom
+    builder.button(text="🔙 بستن منو", callback_data="close_menu")
+
+    # Adjust layout: 1 button per row
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+# --- Delete Flow (Updated) ---
+
 @router.message(F.text == "🗑 حذف محتوا")
 async def start_delete(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
 
+    # Clear any previous states just in case
+    await state.clear()
+
     casts = await db.get_all_cast_names()
     if not casts:
-        await message.answer("هنوز هیچ محتوایی ثبت نشده است.")
+        await message.answer("📭 لیست خالی است. هیچ محتوایی برای حذف وجود ندارد.")
         return
 
-    text = "نام دقیق محتوایی که می‌خواهید حذف کنید را ارسال کنید:\n\n"
-    for c in casts:
-        text += f"• `{c['name']}`\n"
-
-    await message.answer(text, reply_markup=kb_cancel())
-    await state.set_state(AdminFlow.waiting_for_delete)
+    await message.answer(
+        "👇 برای حذف هر محتوا، روی دکمه آن کلیک کنید:",
+        reply_markup=kb_delete_list(casts)
+    )
 
 
-@router.message(AdminFlow.waiting_for_delete)
-async def process_delete(message: Message, state: FSMContext):
-    name = message.text
-    deleted = await db.delete_cast(name)
+@router.callback_query(F.data.startswith("del:"))
+async def process_delete_callback(callback):
+    """
+    Handles the click on a delete button.
+    """
+    # Extract name from callback_data (remove "del:" prefix)
+    cast_name = callback.data.split(":", 1)[1]
+
+    # Delete from database
+    deleted = await db.delete_cast(cast_name)
 
     if deleted:
-        await message.answer(f"✅ محتوای '{name}' حذف شد.", reply_markup=kb_main_menu())
-    else:
-        await message.answer(f"❌ نام '{name}' پیدا نشد.", reply_markup=kb_cancel())
-        return
+        # Show a small popup notification
+        await callback.answer(f"✅ '{cast_name}' حذف شد.", show_alert=False)
 
-    await state.clear()
+        # Refresh the list in the message
+        casts = await db.get_all_cast_names()
+        if casts:
+            await callback.message.edit_reply_markup(reply_markup=kb_delete_list(casts))
+        else:
+            await callback.message.edit_text("🗑 تمام محتواها حذف شدند.")
+    else:
+        await callback.answer("❌ خطا: این آیتم یافت نشد یا قبلاً حذف شده است.", show_alert=True)
+        # Refresh the list anyway to remove the bad button
+        casts = await db.get_all_cast_names()
+        await callback.message.edit_reply_markup(reply_markup=kb_delete_list(casts))
+
+
+@router.callback_query(F.data == "close_menu")
+async def close_menu_callback(callback):
+    """
+    Handles the 'Close Menu' button.
+    """
+    await callback.message.delete()
+    # Optional: Send main menu again or just simple notification
+    await callback.answer("منوی حذف بسته شد.")

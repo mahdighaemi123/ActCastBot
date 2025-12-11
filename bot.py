@@ -214,10 +214,15 @@ async def process_phone(message: Message, state: FSMContext):
     )
     await message.answer(final_text, reply_markup=keyboard)
 
-    final_text = (
-        "در اکت‌کست قرار هستش یک کار بزرگ باهم انجام دهیم.♥️✨"
-    )
-    await message.answer_video("BAACAgQAAxkBAAJqy2k6s2kc7v8ob6_OGFEzUw926MipAAIiIAACK0y4UX49xjpn-nNNNgQ", caption=final_text, reply_markup=keyboard)
+    try:
+
+        final_text = (
+            "در اکت‌کست قرار هستش یک کار بزرگ باهم انجام دهیم.♥️✨"
+        )
+        await message.answer_video("BAACAgQAAxkBAAJqy2k6s2kc7v8ob6_OGFEzUw926MipAAIiIAACK0y4UX49xjpn-nNNNgQ", caption=final_text, reply_markup=keyboard)
+
+    except Exception as e:
+        logger.error(f"video send error: {e}")
 
     final_text = """قدم اول پیش از شروع اولین جلسه انجام تست انعطاف پذیری هستش. ✅ جهت انجام تست روی لینک زیر ضربه بزنید:
 https://alimirsadeghi.com/test-congnitive-flexibility/
