@@ -217,7 +217,10 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
             f"⚠️ اگر اشتباهی رخ داده، با دکمه زیر می‌توانید پیام‌های ارسال شده را حذف کنید:",
             reply_markup=delete_kb
         )
+        await asyncio.sleep(0.1)
+
         await state.clear()
+        await message.answer("🏠 بازگشت به منوی اصلی:", reply_markup=kb_filter_start())
         return
 
     current = (await state.get_data()).get("messages", [])

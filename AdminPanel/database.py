@@ -37,19 +37,16 @@ class DatabaseService:
         """
         دریافت کاربران با تبدیل Timestamp ورودی به DateTime قابل فهم برای مونگو
         """
-        # --- تبدیل Timestamp به Datetime ---
+
         start_date = datetime.fromtimestamp(start_ts)
         end_date = datetime.fromtimestamp(end_ts)
 
         query = {
             "created_at": {
-                "$gte": start_date,  # مقایسه تاریخ با تاریخ
+                "$gte": start_date,
                 "$lte": end_date
             }
         }
-
-        # لاگ برای دیباگ (اختیاری)
-        # print(f"Querying from {start_date} to {end_date}")
 
         cursor = self.users.find(query, {"user_id": 1})
         return await cursor.to_list(length=None)
