@@ -29,7 +29,7 @@ logger = logging.getLogger("broadcast")
 class BroadcastFlow(StatesGroup):
     choosing_daterange = State()
     collecting_messages = State()
-
+    waiting_for_ids = State()
 # --- Main Keyboard ---
 
 
@@ -37,6 +37,8 @@ def kb_filter_start():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📅 فیلتر پیشرفته (تاریخ دقیق)")],
+            [KeyboardButton(text="👤 انتخاب دستی (User IDs)")],  # 👈 New
+            [KeyboardButton(text="🧪 ارسال تستی (Test Users)")],  # 👈 New
             [KeyboardButton(text="⚡️ همه کاربران")],
             [KeyboardButton(text="❌ انصراف")]
         ],
@@ -171,25 +173,108 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
         await message.answer("لغو شد.", reply_markup=kb_filter_start())
         return
 
+    # if message.text == "✅ ارسال نهایی":
+    #     data = await state.get_data()
+    #     msgs = data.get("messages", [])
+    #     start_ts = data.get("start_ts")
+    #     end_ts = data.get("end_ts")
+
+    #     if not msgs:
+    #         await message.answer("هیچ پیامی ارسال نکردید!")
+    #         return
+
+    #     users = await db.get_users_in_range(start_ts, end_ts)
+    #     if not users:
+    #         await message.answer("کاربری پیدا نشد.")
+    #         return
+
+    #     # 1. Create a random batch ID for this broadcast
+    #     batch_id = str(uuid.uuid4())
+
+    #     await message.answer(f"🚀 در حال ارسال برای {len(users)} نفر...\n🆔 شناسه ارسال: `{batch_id}`")
+    #     await db.save_broadcast_batch(batch_id, start_ts, end_ts, len(users), msgs)
+
+    #     success = 0
+    #     blocked = 0
+
+    #     # --- LOOP SENDING ---
+    #     for u in users:
+    #         try:
+    #             for m in msgs:
+    #                 # 2. Send message
+    #                 keyboards = await kb_dynamic_casts(db)
+    #                 sent_msg = await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'], reply_markup=keyboards)
+    #                 await db.save_broadcast_log(batch_id, u['user_id'], sent_msg.message_id)
+
+    #                 await asyncio.sleep(0.05)
+    #             success += 1
+    #         except Exception as e:
+    #             logger.error(f"single send error: {e}")
+    #             blocked += 1
+
+    #         await asyncio.sleep(0.1)
+
+    #     await db.update_broadcast_batch_stats(batch_id, success, blocked)
+
+    #     # 4. Create Delete Button for Admin
+    #     delete_kb = InlineKeyboardMarkup(inline_keyboard=[
+    #         [InlineKeyboardButton(
+    #             text="🗑 حذف پیام‌های این ارسال (Delete All)", callback_data=f"del_batch:{batch_id}")]
+    #     ])
+
+    #     await message.answer(
+    #         f"✅ تمام شد.\n"
+    #         f"🆔 Batch ID: `{batch_id}`\n"
+    #         f"🟢 موفق: {success}\n"
+    #         f"🔴 ناموفق: {blocked}\n\n"
+    #         f"⚠️ اگر اشتباهی رخ داده، با دکمه زیر می‌توانید پیام‌های ارسال شده را حذف کنید:",
+    #         reply_markup=delete_kb
+    #     )
+    #     await asyncio.sleep(0.1)
+
+    #     await state.clear()
+    #     await message.answer("🏠 بازگشت به منوی اصلی:", reply_markup=kb_main_menu())
+    #     return
+
     if message.text == "✅ ارسال نهایی":
         data = await state.get_data()
         msgs = data.get("messages", [])
-        start_ts = data.get("start_ts")
-        end_ts = data.get("end_ts")
+
+        # Check Mode
+        mode = data.get("mode", "range")  # range, test, manual, all
+        target_users_list = data.get("target_users", [])
+
+        # Logic to determine recipients
+        users = []
+        start_ts = 0
+        end_ts = 0
+
+        if mode == "range" or mode == "all":
+            # Existing Logic
+            start_ts = data.get("start_ts", 0)
+            end_ts = data.get("end_ts", time.time())
+            users = await db.get_users_in_range(start_ts, end_ts)
+        elif mode in ["test", "manual"]:
+            # New Logic for Test/Manual
+            users = target_users_list
+            # Set fake timestamps for logging purposes
+            start_ts = 0
+            end_ts = 0
 
         if not msgs:
             await message.answer("هیچ پیامی ارسال نکردید!")
             return
 
-        users = await db.get_users_in_range(start_ts, end_ts)
         if not users:
-            await message.answer("کاربری پیدا نشد.")
+            await message.answer("کاربری برای ارسال پیدا نشد.")
             return
 
-        # 1. Create a random batch ID for this broadcast
+        # 1. Create a random batch ID
         batch_id = str(uuid.uuid4())
 
-        await message.answer(f"🚀 در حال ارسال برای {len(users)} نفر...\n🆔 شناسه ارسال: `{batch_id}`")
+        await message.answer(f"🚀 در حال ارسال برای {len(users)} نفر ({mode})...\n🆔 شناسه ارسال: `{batch_id}`")
+
+        # Save batch info
         await db.save_broadcast_batch(batch_id, start_ts, end_ts, len(users), msgs)
 
         success = 0
@@ -199,7 +284,7 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
         for u in users:
             try:
                 for m in msgs:
-                    # 2. Send message
+                    # Send message
                     keyboards = await kb_dynamic_casts(db)
                     sent_msg = await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'], reply_markup=keyboards)
                     await db.save_broadcast_log(batch_id, u['user_id'], sent_msg.message_id)
@@ -212,10 +297,9 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
 
             await asyncio.sleep(0.1)
 
-
         await db.update_broadcast_batch_stats(batch_id, success, blocked)
 
-        # 4. Create Delete Button for Admin
+        # Create Delete Button
         delete_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(
                 text="🗑 حذف پیام‌های این ارسال (Delete All)", callback_data=f"del_batch:{batch_id}")]
@@ -286,3 +370,70 @@ async def delete_broadcast_batch(callback: CallbackQuery):
         f"🆔 Batch ID: `{batch_id}`\n"
         f"🗑 تعداد حذف شده: {deleted_count} از {len(logs)}"
     )
+
+
+# --- Test Mode Handler ---
+@router.message(F.text.contains("ارسال تستی"))
+async def filter_test_users(message: Message, state: FSMContext):
+    # Retrieve test users from DB (You need to implement this in database.py or filter here)
+    # Assuming db.get_test_users() exists. If not, see note below.
+    test_users = await db.get_test_users()
+
+    if not test_users:
+        await message.answer("❌ هیچ کاربر تستی (test: true) در دیتابیس یافت نشد.")
+        return
+
+    # Store the specific list of users in state
+    await state.update_data(target_users=test_users, mode="test")
+
+    await message.answer(
+        f"🧪 حالت تست فعال شد.\n👥 تعداد گیرندگان: {len(test_users)} نفر\n\n👇 پیام خود را ارسال کنید:",
+        reply_markup=kb_broadcast_actions()
+    )
+    await state.set_state(BroadcastFlow.collecting_messages)
+
+
+# --- Manual Selection Handlers ---
+@router.message(F.text.contains("انتخاب دستی"))
+async def filter_manual_start(message: Message, state: FSMContext):
+    await message.answer(
+        "👤 لطفاً **شناسه عددی (User ID)** کاربران مورد نظر را ارسال کنید.\n"
+        "می‌توانید چندین شناسه را با فاصله یا خط جدید جدا کنید.\n\n"
+        "مثال:\n`123456789 987654321`",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text="❌ انصراف")]], resize_keyboard=True
+        )
+    )
+    await state.set_state(BroadcastFlow.waiting_for_ids)
+
+
+@router.message(BroadcastFlow.waiting_for_ids)
+async def filter_manual_process(message: Message, state: FSMContext):
+    if message.text == "❌ انصراف":
+        await state.clear()
+        await message.answer("لغو شد.", reply_markup=kb_filter_start())
+        return
+
+    # Parse IDs from text
+    raw_text = message.text.replace("\n", " ").replace(",", " ")
+    id_list = []
+
+    try:
+        for item in raw_text.split():
+            if item.isdigit():
+                # specific structure for your loop: {'user_id': 123}
+                id_list.append({'user_id': int(item)})
+    except Exception:
+        await message.answer("❌ فرمت اشتباه است. فقط عدد ارسال کنید.")
+        return
+
+    if not id_list:
+        await message.answer("❌ هیچ ID معتبری یافت نشد. دوباره تلاش کنید.")
+        return
+
+    await state.update_data(target_users=id_list, mode="manual")
+    await message.answer(
+        f"✅ {len(id_list)} کاربر انتخاب شدند.\n👇 پیام خود را ارسال کنید:",
+        reply_markup=kb_broadcast_actions()
+    )
+    await state.set_state(BroadcastFlow.collecting_messages)
