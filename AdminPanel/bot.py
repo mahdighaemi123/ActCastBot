@@ -1,3 +1,7 @@
+from aiogram.types import (
+    Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
+)
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
@@ -58,9 +62,8 @@ async def main():
 
     dp.update.outer_middleware(GlobalLockMiddleware())
 
-    # اضافه کردن روتری که ساختیم
     dp.include_router(upload_router)
-    dp.include_router(broadcast_router)  # <--- اضافه شد
+    dp.include_router(broadcast_router)
 
     logger.info("🚀 Admin Bot Started...")
 
