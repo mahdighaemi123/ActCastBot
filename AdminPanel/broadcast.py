@@ -62,6 +62,50 @@ def kb_broadcast_actions():
         selective=False
     )
 
+
+async def execute_batch_deletion(batch_id: str, status_message: Message):
+    """
+    Shared function to delete messages for a given batch_id.
+    Updates the status_message with progress.
+    """
+    # 1. Get logs from DB
+    logs = await db.get_broadcast_logs(batch_id)
+
+    if not logs:
+        await status_message.edit_text(f"❌ پیامی برای شناسه `{batch_id}` در دیتابیس یافت نشد.")
+        return
+
+    total = len(logs)
+    await status_message.edit_text(f"🗑 پیدا شد: {total} پیام.\n⏳ شروع عملیات حذف برای Batch ID: `{batch_id}`...")
+
+    deleted_count = 0
+    errors = 0
+
+    for i, log in enumerate(logs):
+        try:
+            await main_bot.delete_message(chat_id=log['user_id'], message_id=log['message_id'])
+            deleted_count += 1
+        except Exception as e:
+            errors += 1
+
+        if i % 100 == 0:
+            await status_message.edit_text(
+                f"⏳ در حال حذف... ({i+1}/{total})\n"
+                f"🗑 حذف شده: {deleted_count}\n"
+                f"⚠️ خطا: {errors}"
+            )
+
+        await asyncio.sleep(0.035)
+
+    await status_message.edit_text(
+        f"✅ **عملیات حذف پایان یافت.**\n\n"
+        f"🆔 Batch ID: `{batch_id}`\n"
+        f"🔢 کل پیام‌ها: {total}\n"
+        f"🗑 موفق: {deleted_count}\n"
+        f"⚠️ ناموفق/پاک شده: {errors}"
+    )
+
+
 # --- Start Handler ---
 
 
@@ -196,6 +240,7 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
             start_ts = data.get("start_ts", 0)
             end_ts = data.get("end_ts", time.time())
             users = await db.get_users_in_range(start_ts, end_ts)
+
         elif mode in ["test", "manual"]:
             # New Logic for Test/Manual
             users = target_users_list
@@ -226,18 +271,22 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
         for u in users:
             try:
                 for m in msgs:
-                    # Send message
+                    start_time = time.perf_counter()
+
                     keyboards = await kb_dynamic_casts(db)
                     sent_msg = await main_bot.copy_message(u['user_id'], m['chat_id'], m['message_id'], reply_markup=keyboards)
                     await db.save_broadcast_log(batch_id, u['user_id'], sent_msg.message_id)
 
-                    await asyncio.sleep(0.05)
+                    elapsed = time.perf_counter() - start_time
+                    if elapsed < 0.04:
+                        await asyncio.sleep(max(0, 0.04 - elapsed))
+
                 success += 1
             except Exception as e:
                 logger.error(f"single send error: {e}")
                 blocked += 1
 
-            await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)
 
         await db.update_broadcast_batch_stats(batch_id, success, blocked)
 
@@ -280,45 +329,9 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
                          selective=False)
 
 
-# --- NEW HANDLER: Delete the broadcast batch ---
-@router.callback_query(F.data.startswith("del_batch:"))
-async def delete_broadcast_batch(callback: CallbackQuery):
-    # Extract batch_id
-    batch_id = callback.data.split(":")[1]
-
-    await callback.answer("⏳ در حال حذف پیام‌ها...", show_alert=False)
-    await callback.message.edit_text(f"🗑 در حال حذف پیام‌های شناسه `{batch_id}` ... لطفا صبر کنید.")
-
-    # 5. Get logs from DB (You must create this function in database.py)
-    # It should return a list of dicts: [{'user_id': 123, 'message_id': 456}, ...]
-    logs = await db.get_broadcast_logs(batch_id)
-
-    if not logs:
-        await callback.message.edit_text("❌ پیامی برای این شناسه در دیتابیس یافت نشد.")
-        return
-
-    deleted_count = 0
-    for log in logs:
-        try:
-            await main_bot.delete_message(chat_id=log['user_id'], message_id=log['message_id'])
-            deleted_count += 1
-            await asyncio.sleep(0.03)  # Flood limit prevention
-        except Exception as e:
-            logger.error(
-                f"Failed to delete {log['message_id']} for {log['user_id']}: {e}")
-
-    await callback.message.edit_text(
-        f"✅ عملیات حذف پایان یافت.\n\n"
-        f"🆔 Batch ID: `{batch_id}`\n"
-        f"🗑 تعداد حذف شده: {deleted_count} از {len(logs)}"
-    )
-
-
 # --- Test Mode Handler ---
 @router.message(F.text.contains("ارسال تستی"))
 async def filter_test_users(message: Message, state: FSMContext):
-    # Retrieve test users from DB (You need to implement this in database.py or filter here)
-    # Assuming db.get_test_users() exists. If not, see note below.
     test_users = await db.get_test_users()
 
     if not test_users:
@@ -381,52 +394,6 @@ async def filter_manual_process(message: Message, state: FSMContext):
     await state.set_state(BroadcastFlow.collecting_messages)
 
 # --- Helper: Core Deletion Logic ---
-
-
-async def execute_batch_deletion(batch_id: str, status_message: Message):
-    """
-    Shared function to delete messages for a given batch_id.
-    Updates the status_message with progress.
-    """
-    # 1. Get logs from DB
-    logs = await db.get_broadcast_logs(batch_id)
-
-    if not logs:
-        await status_message.edit_text(f"❌ پیامی برای شناسه `{batch_id}` در دیتابیس یافت نشد.")
-        return
-
-    total = len(logs)
-    await status_message.edit_text(f"🗑 پیدا شد: {total} پیام.\n⏳ شروع عملیات حذف برای Batch ID: `{batch_id}`...")
-
-    deleted_count = 0
-    errors = 0
-
-    for i, log in enumerate(logs):
-        try:
-            await main_bot.delete_message(chat_id=log['user_id'], message_id=log['message_id'])
-            deleted_count += 1
-        except Exception as e:
-            # Common errors: Message not found, User blocked bot, Message too old
-            errors += 1
-            # logger.error(f"Delete fail: {e}")
-
-        # Update status every 20 messages to avoid flood wait on editing message
-        if i % 20 == 0:
-            await status_message.edit_text(
-                f"⏳ در حال حذف... ({i}/{total})\n"
-                f"🗑 حذف شده: {deleted_count}\n"
-                f"⚠️ خطا: {errors}"
-            )
-
-        await asyncio.sleep(0.035)  # Rate limit safety
-
-    await status_message.edit_text(
-        f"✅ **عملیات حذف پایان یافت.**\n\n"
-        f"🆔 Batch ID: `{batch_id}`\n"
-        f"🔢 کل پیام‌ها: {total}\n"
-        f"🗑 موفق: {deleted_count}\n"
-        f"⚠️ ناموفق/پاک شده: {errors}"
-    )
 
 
 # --- Manual Batch Deletion Handlers ---
