@@ -109,6 +109,16 @@ class DatabaseService:
             }
         )
 
+    async def get_test_users(self):
+        """
+        Retrieves users flagged as test users in the database.
+        Make sure your test users have the field 'is_test': true (or 'test': true) in MongoDB.
+        """
+        query = {"test": True}
+
+        cursor = self.users.find(query, {"user_id": 1})
+        return await cursor.to_list(length=None)
+
 
 # ساخت یک آبجکت که در بقیه فایل‌ها استفاده شود
 db = DatabaseService()
