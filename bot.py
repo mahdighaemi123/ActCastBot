@@ -154,6 +154,7 @@ db = DatabaseService()
 
 
 @router.message(CommandStart())
+@router.message(Command("menu"))
 async def cmd_start(message: Message, state: FSMContext):
     user_id = message.from_user.id
 
