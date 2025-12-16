@@ -37,6 +37,14 @@ services:
     networks:
       - my_bridge
 
+  report_survey_bot:
+    container_name: tg_actcast_report_survey_bot
+    build: ./ReportSurvey
+    env_file:
+      - .env
+    networks:
+      - my_bridge
+
   mongodb:
     image: mongo:6.0
     container_name: tg_actcast_mongodb

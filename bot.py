@@ -370,7 +370,6 @@ async def handle_survey_click(callback: CallbackQuery):
     else:
         await callback.answer("گزینه نامعتبر است.")
 
-
 # ---------------------------------------------------------
 # UNIFIED HANDLER (هندلر یکپارچه نهایی)
 # ---------------------------------------------------------
