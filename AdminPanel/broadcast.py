@@ -39,12 +39,11 @@ class BroadcastFlow(StatesGroup):
 def kb_filter_start():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📅 فیلتر پیشرفته (تاریخ دقیق)")],
-            [KeyboardButton(text="👤 انتخاب دستی (User IDs)")],
-            [KeyboardButton(text="🧪 ارسال تستی (Test Users)")],
-            [KeyboardButton(text="🗑 حذف با شناسه (Batch ID)")
-             ],  # 🆕 Added this button
             [KeyboardButton(text="⚡️ همه کاربران")],
+            [KeyboardButton(text="📅 فیلتر پیشرفته (تاریخ دقیق)")],
+            [KeyboardButton(text="🗑 حذف پیام ارسال شده با شناسه")],
+            [KeyboardButton(text="👤 انتخاب دستی"),
+             KeyboardButton(text="🧪 ارسال تستی")],
             [KeyboardButton(text="❌ انصراف")]
         ],
         resize_keyboard=True,
