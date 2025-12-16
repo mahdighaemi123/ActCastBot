@@ -46,6 +46,16 @@ if not CONF["BOT_TOKEN"]:
 # ---------------------------------------------------------
 
 
+def convert_to_english_digits(text):
+    """Convert Persian digits in the input text to English digits."""
+    if not isinstance(text, str):
+        return text
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    english_digits = '0123456789'
+    trans_table = str.maketrans(persian_digits, english_digits)
+    return text.translate(trans_table)
+
+
 class DatabaseService:
     def __init__(self):
         self.client = AsyncIOMotorClient(CONF["MONGO_URL"])
@@ -375,6 +385,7 @@ async def handle_survey_click(callback: CallbackQuery):
 # ---------------------------------------------------------
 # در فایل main.py
 
+
 @router.message()
 async def final_message_handler(message: Message, state: FSMContext, bot: Bot):
     # چک کردن‌های اولیه (دستورات و پیام خالی و ...)
@@ -385,7 +396,7 @@ async def final_message_handler(message: Message, state: FSMContext, bot: Bot):
         await cmd_start(message, state)
         return
 
-    user_input_clean = user_input.strip()
+    user_input_clean = convert_to_english_digits(user_input.strip())
     user_id = message.from_user.id
 
     # -----------------------------------------------------
