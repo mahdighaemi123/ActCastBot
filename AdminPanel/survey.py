@@ -9,7 +9,7 @@ from main_bot import main_bot, kb_dynamic_casts
 import time
 from config import CONF, is_admin
 from database import db
-
+from upload_content import kb_main_menu
 survey_router = Router()
 
 # ---------------------------------------------------------
@@ -194,7 +194,7 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
     text = message.text
     if text == "❌ لغو":
         await state.clear()
-        await message.answer("عملیات لغو شد.")
+        await message.answer("عملیات لغو شد.", reply_markup=kb_main_menu)
         return
 
     data = await state.get_data()
@@ -283,4 +283,6 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
     ])
 
     await message.answer(summary, reply_markup=del_markup)
+
+    await message.answer("منو:", reply_markup=kb_main_menu)
     await state.clear()
