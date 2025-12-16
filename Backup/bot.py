@@ -9,7 +9,7 @@ from aiogram import Bot
 from aiogram.types import FSInputFile
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-
+import re
 # ---------------------------------------------------------
 # 1. CONFIGURATION & LOGGING
 # ---------------------------------------------------------
@@ -44,6 +44,53 @@ if not CONF["BACKUP_CHANNEL_ID"]:
 # ---------------------------------------------------------
 
 
+def convert_to_english_digits(text):
+    """Convert Persian digits in the input text to English digits."""
+    if not isinstance(text, str):
+        return text
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    english_digits = '0123456789'
+    trans_table = str.maketrans(persian_digits, english_digits)
+    return text.translate(trans_table)
+
+
+def remove_trailing_dot_zero(text):
+    """Remove trailing '.0' or '.00' from the input text."""
+    if not isinstance(text, str):
+        return text
+    if text.endswith('.00'):
+        return text[:-3]
+    elif text.endswith('.0'):
+        return text[:-2]
+    return text
+
+
+def standardize_phone_number(phone):
+    """Standardize phone numbers to the format '09xxxxxxxxx'."""
+    if phone is None or phone == "":
+        return phone
+
+    phone = str(phone).strip()
+    phone = remove_trailing_dot_zero(phone)
+    phone = convert_to_english_digits(phone)
+    phone = re.sub(r'\D', '', phone)
+
+    if phone.startswith('+98'):
+        phone = '0' + phone[3:]
+
+    elif phone.startswith('0098'):
+        phone = '0' + phone[4:]
+
+    elif phone.startswith('98'):
+        phone = '0' + phone[2:]
+
+    if len(phone) == 10:
+        if not phone.startswith('0'):
+            phone = '0' + phone
+
+    return phone
+
+
 async def fetch_users_data():
     """Fetches all user documents from MongoDB."""
     client = AsyncIOMotorClient(CONF["MONGO_URL"])
@@ -71,6 +118,11 @@ def generate_excel(users_data, filename):
     if 'created_at' in df.columns:
         df['created_at'] = pd.to_datetime(
             df['created_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    if 'phone' in df.columns:
+        df['phone'] = df['phone'].apply(standardize_phone_number)
+        df['phone'] = df['phone'].replace(
+            {None: "وارد نشده", " ": "وارد نشده"})
 
     # Save to Excel
     df.to_excel(filename, index=False, engine='openpyxl')
