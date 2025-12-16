@@ -66,10 +66,11 @@ def kb_cancel():
 def kb_main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton(text="📢 ارسال همگانی")],
             [KeyboardButton(text="📤 آپلود محتوای جدید"),
              KeyboardButton(text="🗑 حذف محتوا")],
-            [KeyboardButton(text="📢 ارسال همگانی")],
-            [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند")],
+            [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند"),
+             KeyboardButton(text="❌ حذف کلمه هوشمند")],
         ],
         resize_keyboard=True
     )
@@ -383,3 +384,76 @@ async def process_smart_content(message: Message, state: FSMContext):
     except Exception as e:
         logger.error(f"Error copying msg: {e}")
         await message.answer("خطا در ذخیره پیام.")
+
+
+def kb_delete_keywords_list(keywords_list):
+    """
+    لیستی از کلمات کلیدی را به صورت دکمه‌های حذف نمایش می‌دهد.
+    """
+    builder = InlineKeyboardBuilder()
+
+    for item in keywords_list:
+        kw = item['keyword']
+        # فرمت کال‌بک: "del_kw:keyword"
+        builder.button(text=f"❌ {kw}", callback_data=f"del_kw:{kw}")
+
+    builder.button(text="🔙 بستن منو", callback_data="close_menu")
+    builder.adjust(2)  # نمایش دو دکمه در هر ردیف
+    return builder.as_markup()
+
+
+# ---------------------------------------------------------
+# FLOW: حذف کلمات کلیدی هوشمند
+# ---------------------------------------------------------
+
+@router.message(F.text == "❌ حذف کلمه هوشمند")
+async def start_delete_keywords(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    # پاک کردن وضعیت‌های قبلی
+    await state.clear()
+
+    # دریافت تمام کلمات از دیتابیس
+    keywords = await db.get_all_keywords()
+
+    if not keywords:
+        await message.answer("📭 لیست پاسخ‌های هوشمند خالی است.")
+        return
+
+    await message.answer(
+        "👇 برای حذف هر کلمه هوشمند، روی آن کلیک کنید:",
+        reply_markup=kb_delete_keywords_list(keywords)
+    )
+
+
+@router.callback_query(F.data.startswith("del_kw:"))
+async def process_delete_keyword_callback(callback):
+    """
+    هندلر کلیک روی دکمه حذف کلمه کلیدی
+    """
+    # استخراج کلمه کلیدی از دیتای کال‌بک
+    target_keyword = callback.data.split(":", 1)[1]
+
+    # حذف از دیتابیس
+    deleted = await db.delete_keyword_reply(target_keyword)
+
+    if deleted:
+        await callback.answer(f"✅ کلمه '{target_keyword}' حذف شد.", show_alert=False)
+
+        # بروزرسانی لیست دکمه‌ها (رفرش کردن لیست)
+        remaining_keywords = await db.get_all_keywords()
+
+        if remaining_keywords:
+            await callback.message.edit_reply_markup(
+                reply_markup=kb_delete_keywords_list(remaining_keywords)
+            )
+        else:
+            await callback.message.edit_text("🗑 تمام کلمات کلیدی حذف شدند.")
+    else:
+        await callback.answer("❌ خطا: این کلمه یافت نشد یا قبلاً حذف شده است.", show_alert=True)
+        # رفرش لیست برای حذف دکمه خراب
+        remaining_keywords = await db.get_all_keywords()
+        await callback.message.edit_reply_markup(
+            reply_markup=kb_delete_keywords_list(remaining_keywords)
+        )

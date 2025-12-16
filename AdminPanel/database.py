@@ -120,7 +120,6 @@ class DatabaseService:
         cursor = self.users.find(query, {"user_id": 1})
         return await cursor.to_list(length=None)
 
-
     async def add_keyword_reply(self, keyword: str, content_list: list):
         """
         ذخیره یک کلمه کلیدی و لیست پیام‌های مربوط به آن.
@@ -129,7 +128,7 @@ class DatabaseService:
         """
         document = {
             "keyword": keyword,
-            "content": content_list, # لیست را مستقیم ذخیره می‌کنیم
+            "content": content_list,  # لیست را مستقیم ذخیره می‌کنیم
             "updated_at": datetime.now()
         }
         # استفاده از upsert برای اینکه اگر کلمه قبلا بود، آپدیت شود
@@ -146,7 +145,7 @@ class DatabaseService:
         # جستجوی دقیق (Exact Match).
         # نکته: در فایل main بهتر است ورودی کاربر را .strip() کنید
         doc = await self.keyword_replies.find_one({"keyword": keyword})
-        
+
         if doc:
             return doc.get("content", [])
         return None
