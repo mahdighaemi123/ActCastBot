@@ -286,3 +286,9 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
 
     await message.answer("منو:", reply_markup=kb_main_menu)
     await state.clear()
+
+
+@survey_router.message(F.text == "لغو")
+async def start_survey_creation(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("عملیات لغو شد.", reply_markup=kb_main_menu)
