@@ -103,6 +103,21 @@ async def fetch_users_data():
     return users
 
 
+def format_history_list(history_data):
+    """
+    Extracts only 'value' from the history list and joins them with commas.
+    Input: [{'value': 'A', ...}, {'value': 'B', ...}]
+    Output: "A, B"
+    """
+    if isinstance(history_data, list):
+        # استخراج مقدار value از هر آیتم لیست
+        # فقط در صورتی که دیکشنری باشد و کلید value را داشته باشد
+        values = [str(item.get('value', '')) for item in history_data if isinstance(
+            item, dict) and item.get('value')]
+        return ", ".join(values)
+    return ""
+
+
 def generate_excel(users_data, filename):
     """Converts user data list to an Excel file using Pandas."""
     if not users_data:
@@ -121,6 +136,9 @@ def generate_excel(users_data, filename):
 
     if 'phone' in df.columns:
         df['phone'] = df['phone'].apply(standardize_phone_number)
+
+    if 'history' in df.columns:
+        df['history'] = df['history'].apply(format_history_list)
 
     # Save to Excel
     df.to_excel(filename, index=False, engine='openpyxl')
