@@ -1,0 +1,7 @@
+aiogram
+python-dotenv
+motor
+openai
+pandas
+openpyxl
+pytz
