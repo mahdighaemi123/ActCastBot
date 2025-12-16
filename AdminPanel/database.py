@@ -142,8 +142,6 @@ class DatabaseService:
         """
         جستجو بر اساس کلمه کلیدی و بازگرداندن لیست پیام‌ها
         """
-        # جستجوی دقیق (Exact Match).
-        # نکته: در فایل main بهتر است ورودی کاربر را .strip() کنید
         doc = await self.keyword_replies.find_one({"keyword": keyword})
 
         if doc:
@@ -165,5 +163,4 @@ class DatabaseService:
         return result.deleted_count > 0
 
 
-# ساخت یک آبجکت که در بقیه فایل‌ها استفاده شود
 db = DatabaseService()

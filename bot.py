@@ -281,7 +281,7 @@ async def process_test_callback(callback: CallbackQuery):
     """
     This function runs when the user clicks the 'تست' button.
     """
-
+    user_id = callback.from_user.id
     keyboard = await kb_dynamic_casts(db)
 
     await callback.message.answer("""لینک تست :
@@ -289,6 +289,12 @@ https://alimirsadeghi.com/test-congnitive-flexibility/
 نتیجه تستتون رو اسکرین شات بگیرین یا یک جا ذخیره کنید تا پس از پایان دوره میزان بهبود آن را متوجه شوید""", reply_markup=keyboard)
 
     await callback.answer()
+
+    await db.add_user_history(
+        user_id=user_id,
+        value="تست",
+        type="start_test"
+    )
 
 
 @router.message(Command("reset_my_account"))
