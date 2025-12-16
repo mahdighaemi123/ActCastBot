@@ -329,7 +329,7 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
 
 
 # --- Test Mode Handler ---
-@router.message(F.text.contains("ارسال تستی"))
+@router.message(F.text == "🧪 ارسال تستی")
 async def filter_test_users(message: Message, state: FSMContext):
     test_users = await db.get_test_users()
 
