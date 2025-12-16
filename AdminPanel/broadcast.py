@@ -277,8 +277,8 @@ async def collect_broadcast_msgs(message: Message, state: FSMContext, bot: Bot):
                     await db.save_broadcast_log(batch_id, u['user_id'], sent_msg.message_id)
 
                     elapsed = time.perf_counter() - start_time
-                    if elapsed < 0.04:
-                        await asyncio.sleep(max(0, 0.04 - elapsed))
+                    if elapsed < 0.05:
+                        await asyncio.sleep(max(0, 0.05 - elapsed))
 
                 success += 1
             except Exception as e:

@@ -111,29 +111,50 @@ class DatabaseService:
             return doc.get("content", [])
         return None
 
+    # async def add_user_history(self, user_id: int, value: str, type: str):
+    #     """
+    #     این تابع فعالیت کاربر را به لیست سوابق او در دیتابیس اضافه می‌کند.
+    #     value: مقداری که کاربر فرستاده (مثلا '33' یا 'جلسه اول')
+    #     type: نوع فعالیت (مثلا 'keyword' یا 'cast_button')
+    #     """
+    #     new_record = {
+    #         "value": value,
+    #         "type": type,
+    #         "date": datetime.now()  # زمان دقیق تعامل
+    #     }
+
+    #     await self.users.update_one(
+    #         {"user_id": user_id},
+    #         {
+    #             # دستور push یک آیتم را به انتهای آرایه history اضافه می‌کند
+    #             "$push": {
+    #                 "history": new_record
+    #             }
+    #         },
+    #         # اگر به هر دلیلی کاربر نبود، upsert باعث ساختش نمی‌شود (چون فقط آپدیت است)
+    #         # اما چون کاربر از start رد شده، حتما وجود دارد.
+    #         upsert=False
+    #     )
+
     async def add_user_history(self, user_id: int, value: str, type: str):
         """
-        این تابع فعالیت کاربر را به لیست سوابق او در دیتابیس اضافه می‌کند.
-        value: مقداری که کاربر فرستاده (مثلا '33' یا 'جلسه اول')
-        type: نوع فعالیت (مثلا 'keyword' یا 'cast_button')
+        اضافه کردن به تاریخچه فقط در صورتی که قبلاً این مقدار ثبت نشده باشد.
         """
-        new_record = {
+        new_entry = {
             "value": value,
             "type": type,
-            "date": datetime.now()  # زمان دقیق تعامل
+            "created_at": datetime.now()
         }
-
+        
+        # شرط آپدیت:
+        # 1. user_id پیدا شود
+        # 2. در آرایه history، هیچ آیتمی نباشد که value آن برابر با مقدار جدید باشد ($ne)
         await self.users.update_one(
-            {"user_id": user_id},
             {
-                # دستور push یک آیتم را به انتهای آرایه history اضافه می‌کند
-                "$push": {
-                    "history": new_record
-                }
+                "user_id": user_id,
+                "history.value": {"$ne": value} 
             },
-            # اگر به هر دلیلی کاربر نبود، upsert باعث ساختش نمی‌شود (چون فقط آپدیت است)
-            # اما چون کاربر از start رد شده، حتما وجود دارد.
-            upsert=False
+            {"$push": {"history": new_entry}}
         )
 
     async def get_survey(self, survey_id: str):
@@ -441,6 +462,7 @@ async def final_message_handler(message: Message, state: FSMContext, bot: Bot):
                     message_id=item['message_id'],
                     reply_markup=keyboard if is_last else None
                 )
+                
                 if not is_last:
                     await asyncio.sleep(0.1)
 
