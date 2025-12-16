@@ -26,7 +26,7 @@ CONF = {
     "ADMIN_BOT_TOKEN": os.getenv("ADMIN_BOT_TOKEN"),
     "MONGODB_URL": os.getenv("MONGODB_URL", "mongodb://localhost:27017"),
     "DB_NAME": os.getenv("DB_NAME", "act_cast_db"),
-    "REPORT_CHANNEL_ID": os.getenv("REPORT_CHANNEL_ID"),  # آیدی گروه آمار
+    "REPORT_CHANNEL_ID": os.getenv("REPORT_CHANNEL_ID"),
     "INTERVAL": 3600,  # 1 Hour
     "TIMEZONE": "Asia/Tehran"
 }
@@ -48,94 +48,83 @@ class SurveyStatsReporter:
 
     async def get_user_info_map(self, user_ids):
         """
-        اطلاعات یوزرنیم و نام کاربران را بر اساس لیست IDها دریافت می‌کند
-        و به صورت یک دیکشنری برمی‌گرداند تا سرعت گزارش‌گیری بالا برود.
+        اطلاعات یوزرنیم و نام کاربران را دریافت می‌کند.
         """
         user_map = {}
         if not user_ids:
             return user_map
 
-        # تبدیل لیست به set برای حذف تکراری‌ها
         unique_ids = list(set(user_ids))
-
-        # کوئری زدن به دیتابیس برای دریافت همه این کاربران
         cursor = self.users.find({"user_id": {"$in": unique_ids}})
 
         async for user in cursor:
             uid = user.get("user_id")
-            # ساختن یک رشته شامل نام و یوزرنیم
-            full_name = user.get("first_name", "") + " " + \
-                user.get("last_name", "") or "Unknown"
+            full_name = (user.get("first_name", "") + " " +
+                         user.get("last_name", "")).strip() or "Unknown"
             username = f"@{user.get('username')}" if user.get(
                 "username") else "No Username"
 
             user_map[uid] = {
-                "full_name": full_name.strip(),
+                "full_name": full_name,
                 "username": username
             }
         return user_map
 
-    async def generate_reports(self):
+    async def generate_individual_reports(self):
         """
-        داده‌ها را جمع‌آوری کرده و خروجی متنی و فایل اکسل را می‌سازد.
+        برای هر نظرسنجی یک دیکشنری شامل متن و مسیر فایل اکسل برمی‌گرداند.
+        خروجی: لیستی از گزارش‌ها
         """
-        # دریافت تمام نظرسنجی‌ها
         all_surveys = await self.surveys.find({}).to_list(length=None)
 
         if not all_surveys:
-            return None, None
+            return []
 
         tz = pytz.timezone(CONF["TIMEZONE"])
-        now_str = datetime.now(tz).strftime("%Y-%m-%d %H:%M")
+        now_str = datetime.now(tz).strftime("%Y-%m-%d | %H:%M")
 
-        # --- بخش ۱: آماده‌سازی متن گزارش ---
-        report_text = f"📊 **گزارش وضعیت نظرسنجی‌ها**\n📅 زمان: `{now_str}`\n\n"
+        reports_list = []
 
-        # --- بخش ۲: آماده‌سازی اکسل ---
-        excel_filename = f"surveys_report_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-
-        # استفاده از Pandas ExcelWriter برای ساخت فایل با چند شیت
-        try:
-            writer = pd.ExcelWriter(excel_filename, engine='openpyxl')
-            has_data = False
-
-            for survey in all_surveys:
+        for survey in all_surveys:
+            try:
                 survey_id = survey.get("survey_id")
                 question = survey.get("question", "بدون سوال")
                 options = survey.get("options", [])
-                votes = survey.get("votes", {})  # ساختار: {user_id: option_id}
+                votes = survey.get("votes", {})
 
-                # >>>> آمار کلی برای متن پیام
+                # 1. آماده‌سازی متن گزارش تکی
                 total_votes = len(votes)
 
-                # نگاشت option_id به متن گزینه برای نمایش راحت‌تر
-                opt_id_to_text = {opt['id']: opt['text'] for opt in options}
+                # خلاصه متن سوال
+                short_q = (question[:100] +
+                           '...') if len(question) > 100 else question
+
+                text_report = (
+                    f"📊 **گزارش نظرسنجی**\n"
+                    f"📅 زمان: `{now_str}`\n"
+                    f"❓ **سوال:** {short_q}\n"
+                    f"👥 **تعداد کل آرا:** `{total_votes}`\n"
+                    f"──────────────────\n"
+                )
 
                 # شمارش آرا
                 vote_counts = {opt['id']: 0 for opt in options}
+                opt_id_to_text = {opt['id']: opt['text'] for opt in options}
+
                 for uid, opt_id in votes.items():
                     if opt_id in vote_counts:
                         vote_counts[opt_id] += 1
 
-                # افزودن به متن گزارش
-                # خلاصه کردن سوال اگر طولانی باشد
-                short_q = (question[:50] +
-                           '..') if len(question) > 50 else question
-
-                report_text += f"📌 **{short_q}**\n"
-                report_text += f"👥 کل آرا: `{total_votes}`\n"
-
+                # افزودن جزئیات گزینه‌ها به متن
                 for opt in options:
                     count = vote_counts.get(opt['id'], 0)
                     percent = (count / total_votes *
                                100) if total_votes > 0 else 0
-                    report_text += f" ▫️ {opt['text']}: {count} ({percent:.1f}%)\n"
-                report_text += "──────────────────\n"
+                    text_report += f"🔹 **{opt['text']}**: {count} ({percent:.1f}%)\n"
 
-                # >>>> ساخت شیت اکسل برای این نظرسنجی
+                # 2. آماده‌سازی فایل اکسل تکی (فقط اگر رای وجود داشته باشد)
+                excel_path = None
                 if total_votes > 0:
-                    has_data = True
-                    # دریافت اطلاعات کاربران این نظرسنجی
                     user_ids_in_survey = [int(uid) for uid in votes.keys()]
                     user_map = await self.get_user_info_map(user_ids_in_survey)
 
@@ -152,30 +141,29 @@ class SurveyStatsReporter:
                             "Full Name": u_info["full_name"],
                             "Username": u_info["username"],
                             "Selected Option": selected_text,
-                            "Option ID": opt_id
+                            "Time": now_str
                         })
 
-                    # تبدیل به DataFrame
+                    # ساخت فایل اکسل اختصاصی برای این نظرسنجی
                     df = pd.DataFrame(excel_data)
+                    # استفاده از 8 کاراکتر اول ID برای نام فایل
+                    safe_filename = f"report_{survey_id[:8]}_{datetime.now().strftime('%M%S')}.xlsx"
+                    df.to_excel(safe_filename, index=False)
+                    excel_path = safe_filename
 
-                    # نام شیت (محدودیت ۳۱ کاراکتر اکسل)
-                    sheet_name = f"Survey_{survey_id[:8]}"
-                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+                # افزودن به لیست گزارش‌ها
+                reports_list.append({
+                    "text": text_report,
+                    "excel_file": excel_path,
+                    "survey_id": survey_id
+                })
 
-            # ذخیره فایل اکسل
-            if has_data:
-                writer.close()
-            else:
-                # اگر هیچ رای‌ای نبود، فایل خالی نسازیم یا یک شیت خالی بسازیم
-                writer.close()
-                # حذف فایل اگر خالی است (اختیاری)
-                # return report_text, None
+            except Exception as e:
+                logger.error(
+                    f"Error processing survey {survey.get('survey_id')}: {e}")
+                continue
 
-            return report_text, excel_filename
-
-        except Exception as e:
-            logger.error(f"Error generating excel: {e}")
-            return f"Error: {e}", None
+        return reports_list
 
 # ---------------------------------------------------------
 # 3. MAIN SCHEDULER
@@ -189,44 +177,44 @@ async def main():
     )
     reporter = SurveyStatsReporter()
 
-    logger.info("✅ Survey Reporter Service Started...")
+    logger.info("✅ Survey Reporter Service Started (Individual Mode)...")
 
     while True:
         try:
             logger.info("⏳ Starting report generation cycle...")
 
-            # تولید گزارش
-            text_msg, excel_path = await reporter.generate_reports()
+            # دریافت لیست گزارش‌ها
+            reports = await reporter.generate_individual_reports()
 
-            if text_msg:
-                # 1. ارسال گزارش متنی
-                # اگر متن خیلی طولانی بود (بیش از 4096 کاراکتر)، باید تیکه تیکه شود.
-                # اینجا فرض بر این است که تعداد نظرسنجی‌ها معقول است.
-                if len(text_msg) > 4000:
-                    text_msg = text_msg[:4000] + \
-                        "\n\n⚠️ متن بریده شد (خیلی طولانی)..."
+            if reports:
+                logger.info(f"📤 Sending {len(reports)} survey reports...")
 
-                await bot.send_message(
-                    chat_id=CONF["REPORT_CHANNEL_ID"],
-                    text=text_msg
-                )
-
-                # 2. ارسال فایل اکسل (اگر وجود داشت)
-                if excel_path and os.path.exists(excel_path):
-                    file_input = FSInputFile(excel_path)
-                    await bot.send_document(
+                for rep in reports:
+                    # 1. ارسال متن
+                    await bot.send_message(
                         chat_id=CONF["REPORT_CHANNEL_ID"],
-                        document=file_input,
-                        caption="📂 فایل ریز مکالمات و انتخاب کاربران"
+                        text=rep["text"]
                     )
 
-                    # پاک کردن فایل بعد از ارسال برای جلوگیری از پر شدن دیسک
-                    os.remove(excel_path)
-                    logger.info("Report sent and temp file cleaned.")
-                else:
-                    logger.info("No excel file generated (maybe no votes).")
+                    # 2. ارسال فایل اکسل (اگر وجود داشت)
+                    excel_path = rep["excel_file"]
+                    if excel_path and os.path.exists(excel_path):
+                        file_input = FSInputFile(excel_path)
+                        await bot.send_document(
+                            chat_id=CONF["REPORT_CHANNEL_ID"],
+                            document=file_input,
+                            caption=f"📂 فایل اکسل جزئیات نظرسنجی: {rep['survey_id'][:8]}"
+                        )
+
+                        # حذف فایل
+                        os.remove(excel_path)
+
+                    # تاخیر کوتاه بین هر نظرسنجی برای جلوگیری از اسپم شدن
+                    await asyncio.sleep(2)
+
+                logger.info("✅ All reports sent successfully.")
             else:
-                logger.info("No surveys found in DB.")
+                logger.info("No surveys found.")
 
         except Exception as e:
             logger.error(f"❌ Critical Error: {e}")
