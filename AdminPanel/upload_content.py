@@ -66,10 +66,10 @@ def kb_cancel():
 def kb_main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📤 آپلود محتوای جدید")],
+            [KeyboardButton(text="📤 آپلود محتوای جدید"),
+             KeyboardButton(text="🗑 حذف محتوا")],
             [KeyboardButton(text="📢 ارسال همگانی")],
             [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند")],
-            [KeyboardButton(text="🗑 حذف محتوا")]
         ],
         resize_keyboard=True
     )
