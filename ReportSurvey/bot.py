@@ -10,7 +10,7 @@ from aiogram import Bot
 from aiogram.types import FSInputFile
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-
+import re
 # ---------------------------------------------------------
 # 1. CONFIGURATION
 # ---------------------------------------------------------
@@ -37,6 +37,53 @@ if not CONF["ADMIN_BOT_TOKEN"] or not CONF["REPORT_CHANNEL_ID"]:
 # ---------------------------------------------------------
 # 2. REPORTER LOGIC
 # ---------------------------------------------------------
+
+
+def convert_to_english_digits(text):
+    """Convert Persian digits in the input text to English digits."""
+    if not isinstance(text, str):
+        return text
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    english_digits = '0123456789'
+    trans_table = str.maketrans(persian_digits, english_digits)
+    return text.translate(trans_table)
+
+
+def remove_trailing_dot_zero(text):
+    """Remove trailing '.0' or '.00' from the input text."""
+    if not isinstance(text, str):
+        return text
+    if text.endswith('.00'):
+        return text[:-3]
+    elif text.endswith('.0'):
+        return text[:-2]
+    return text
+
+
+def standardize_phone_number(phone):
+    """Standardize phone numbers to the format '09xxxxxxxxx'."""
+    if phone is None or phone == "":
+        return phone
+
+    phone = str(phone).strip()
+    phone = remove_trailing_dot_zero(phone)
+    phone = convert_to_english_digits(phone)
+    phone = re.sub(r'\D', '', phone)
+
+    if phone.startswith('+98'):
+        phone = '0' + phone[3:]
+
+    elif phone.startswith('0098'):
+        phone = '0' + phone[4:]
+
+    elif phone.startswith('98'):
+        phone = '0' + phone[2:]
+
+    if len(phone) == 10:
+        if not phone.startswith('0'):
+            phone = '0' + phone
+
+    return phone
 
 
 class SurveyStatsReporter:
@@ -132,13 +179,14 @@ class SurveyStatsReporter:
                     for uid_str, opt_id in votes.items():
                         uid = int(uid_str)
                         u_info = user_map.get(
-                            uid, {"full_name": "Unknown", "username": "-"})
+                            uid, {"name": "Unknown", "username": "-"})
                         selected_text = opt_id_to_text.get(
                             opt_id, "Unknown Option")
 
                         excel_data.append({
                             "User ID": uid,
-                            "Full Name": u_info["full_name"],
+                            "Phone": standardize_phone_number(u_info["phone"]),
+                            "Name": u_info["name"],
                             "Username": u_info["username"],
                             "Selected Option": selected_text,
                             "Time": now_str
@@ -155,7 +203,8 @@ class SurveyStatsReporter:
                 reports_list.append({
                     "text": text_report,
                     "excel_file": excel_path,
-                    "survey_id": survey_id
+                    "survey_id": survey_id,
+                    "short_q": short_q,
                 })
 
             except Exception as e:
@@ -203,7 +252,7 @@ async def main():
                         await bot.send_document(
                             chat_id=CONF["REPORT_CHANNEL_ID"],
                             document=file_input,
-                            caption=f"📂 فایل اکسل جزئیات نظرسنجی: {rep['survey_id'][:8]}"
+                            caption=f"📂 فایل اکسل جزئیات نظرسنجی:\n {rep['short_q'][:100]}"
                         )
 
                         # حذف فایل
