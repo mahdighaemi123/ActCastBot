@@ -343,6 +343,11 @@ async def handle_survey_click(callback: CallbackQuery):
     survey = await db.get_survey(survey_id)
     if not survey:
         await callback.answer("❌ این نظرسنجی منقضی یا حذف شده است.", show_alert=True)
+        # اگر دیتابیس پیدا نشد، پیام را حذف کن تا کاربر گیج نشود
+        try:
+            await callback.message.delete()
+        except:
+            pass
         return
 
     # 2. پیدا کردن گزینه انتخاب شده و پیام پاسخ آن
@@ -352,16 +357,15 @@ async def handle_survey_click(callback: CallbackQuery):
     if selected_option:
         response_text = selected_option.get("reply", "✅ نظر شما ثبت شد.")
 
-        # 3. ثبت رای در دیتابیس (اختیاری)
         await db.save_vote(survey_id, user_id, option_id)
 
-        # 4. نمایش پیام به کاربر
-        # روش اول: نمایش به صورت پاپ‌آپ (Alert)
-        # await callback.answer(response_text, show_alert=True)
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
 
-        # روش دوم: ارسال پیام در چت (مانند درخواست شما)
-        await callback.message.answer(f"🗳 **پاسخ:**\n{response_text}")
-        await callback.answer()  # بستن لودینگ دکمه
+        await callback.message.answer(f"{response_text}")
+        await callback.answer()
 
     else:
         await callback.answer("گزینه نامعتبر است.")

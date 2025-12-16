@@ -181,7 +181,6 @@ async def finalize_survey_creation(message: Message, state: FSMContext):
         keyboard=[
             [KeyboardButton(text="ارسال همگانی"),
              KeyboardButton(text="ارسال تستی")],
-            [KeyboardButton(text="💾 فقط ذخیره (بدون ارسال)")],
             [KeyboardButton(text="❌ لغو")]
         ],
         resize_keyboard=True
@@ -206,11 +205,6 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
     # 1. ذخیره نظرسنجی در دیتابیس (فقط بار اول اگر هنوز ذخیره نشده باشد منطق آن را هندل کنید یا کلا overwrite شود)
     # اینجا فرض بر این است که هربار ذخیره شود مشکلی ندارد
     await db.create_survey(survey_id, question, options)
-
-    if text == "💾 فقط ذخیره (بدون ارسال)":
-        await message.answer(f"✅ نظرسنجی ذخیره شد.\nID: `{survey_id}`", reply_markup=kb_cancel_only())
-        await state.clear()
-        return
 
     # تعیین گیرندگان بر اساس دکمه زده شده
     target_users = []
