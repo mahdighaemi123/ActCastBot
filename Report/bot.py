@@ -24,9 +24,9 @@ CONF = {
     "ADMIN_BOT_TOKEN": os.getenv("ADMIN_BOT_TOKEN"),
     "MONGO_URL": os.getenv("MONGODB_URL", "mongodb://localhost:27017"),
     "DB_NAME": os.getenv("DB_NAME", "act_cast_db"),
-    "REPORT_CHANNEL_ID": os.getenv("REPORT_CHANNEL_ID"), # یا متغیر جداگانه
+    "REPORT_CHANNEL_ID": os.getenv("REPORT_CHANNEL_ID"),  # یا متغیر جداگانه
     "INTERVAL": 3600,  # 1 Hour in seconds
-    "TIMEZONE": "Asia/Tehran" # برای نمایش ساعت در گزارش
+    "TIMEZONE": "Asia/Tehran"  # برای نمایش ساعت در گزارش
 }
 
 # Validation
@@ -36,6 +36,8 @@ if not CONF["ADMIN_BOT_TOKEN"] or not CONF["REPORT_CHANNEL_ID"]:
 # ---------------------------------------------------------
 # 2. DATABASE LOGIC
 # ---------------------------------------------------------
+
+
 class StatsManager:
     def __init__(self):
         self.client = AsyncIOMotorClient(CONF["MONGO_URL"])
@@ -54,29 +56,31 @@ class StatsManager:
         pipeline = [
             # 1. آرایه history را باز می‌کند (هر آیتم تبدیل به یک داکیومنت می‌شود)
             {"$unwind": "$history"},
-            
+
             # 2. بر اساس مقدار value گروه‌بندی می‌کند و می‌شمارد
             {
                 "$group": {
-                    "_id": "$history.value", 
+                    "_id": "$history.value",
                     "count": {"$sum": 1}
                 }
             },
-            
+
             # 3. مرتب‌سازی از بیشترین به کمترین
             {"$sort": {"count": -1}}
         ]
-        
+
         cursor = self.users.aggregate(pipeline)
         return await cursor.to_list(length=None)
 
 # ---------------------------------------------------------
 # 3. REPORT GENERATOR
 # ---------------------------------------------------------
+
+
 def create_report_text(total_users, history_stats):
     tz = pytz.timezone(CONF["TIMEZONE"])
     now = datetime.now(tz).strftime("%Y-%m-%d | %H:%M")
-    
+
     text = (
         f"📊 **گزارش آماری ربات**\n"
         f"📅 تاریخ: `{now}`\n"
@@ -93,7 +97,7 @@ def create_report_text(total_users, history_stats):
             count = item.get("count", 0)
             # محاسبه درصد (اختیاری)
             percent = (count / total_users * 100) if total_users > 0 else 0
-            
+
             text += f"🔹 **{step_name}**: `{count}` نفر ({percent:.1f}%)\n"
 
     return text
@@ -101,6 +105,8 @@ def create_report_text(total_users, history_stats):
 # ---------------------------------------------------------
 # 4. MAIN SERVICE LOOP
 # ---------------------------------------------------------
+
+
 async def send_to_telegram(text):
     bot = Bot(
         token=CONF["ADMIN_BOT_TOKEN"],
@@ -117,6 +123,7 @@ async def send_to_telegram(text):
     finally:
         await bot.session.close()
 
+
 async def run_scheduler():
     db_manager = StatsManager()
     logger.info("Stats Service Started...")
@@ -124,14 +131,14 @@ async def run_scheduler():
     while True:
         try:
             logger.info("Generating report...")
-            
+
             # 1. Fetch Data
             total = await db_manager.get_total_users()
             breakdown = await db_manager.get_history_breakdown()
-            
+
             # 2. Format Message
             message = create_report_text(total, breakdown)
-            
+
             # 3. Send
             await send_to_telegram(message)
 

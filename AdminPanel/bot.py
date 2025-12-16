@@ -25,7 +25,7 @@ from aiogram.types import TelegramObject
 from config import CONF
 from upload_content import router as upload_router
 from broadcast import router as broadcast_router
-
+from survey import survey_router  # <--- این خط را اضافه کنید
 # Setup Logging
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -64,6 +64,7 @@ async def main():
 
     dp.include_router(upload_router)
     dp.include_router(broadcast_router)
+    dp.include_router(survey_router)
 
     logger.info("🚀 Admin Bot Started...")
 

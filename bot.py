@@ -126,6 +126,19 @@ class DatabaseService:
             upsert=False
         )
 
+    async def get_survey(self, survey_id: str):
+        """دریافت اطلاعات کامل یک نظرسنجی"""
+        return await self.db["surveys"].find_one({"survey_id": survey_id})
+
+    async def save_vote(self, survey_id: str, user_id: int, option_id: str):
+        """ثبت رای کاربر (اختیاری: برای جلوگیری از رای تکراری یا آمارگیری)"""
+        # اگر می‌خواهید کاربر بتواند رای خود را تغییر دهد از update_one استفاده کنید
+        await self.db["surveys"].update_one(
+            {"survey_id": survey_id},
+            {"$set": {f"votes.{user_id}": option_id}}
+        )
+
+
 # ---------------------------------------------------------
 # 3. FSM STATES
 # ---------------------------------------------------------
@@ -305,6 +318,53 @@ async def cmd_reset(message: types.Message, state: FSMContext):
     await db.delete_user(user_id)
 
     await message.answer("Account Reset -> use /start ")
+
+
+# ---------------------------------------------------------
+# HANDLERS: تعامل کاربر با نظرسنجی (CALLBACK)
+# ---------------------------------------------------------
+
+
+@router.callback_query(F.data.startswith("surv:"))
+async def handle_survey_click(callback: CallbackQuery):
+    """
+    وقتی کاربر روی دکمه نظرسنجی کلیک می‌کند.
+    Format: surv:{survey_id}:{option_id}
+    """
+    parts = callback.data.split(":")
+    if len(parts) != 3:
+        return
+
+    survey_id = parts[1]
+    option_id = parts[2]
+    user_id = callback.from_user.id
+
+    # 1. دریافت اطلاعات نظرسنجی از دیتابیس
+    survey = await db.get_survey(survey_id)
+    if not survey:
+        await callback.answer("❌ این نظرسنجی منقضی یا حذف شده است.", show_alert=True)
+        return
+
+    # 2. پیدا کردن گزینه انتخاب شده و پیام پاسخ آن
+    selected_option = next(
+        (opt for opt in survey['options'] if opt['id'] == option_id), None)
+
+    if selected_option:
+        response_text = selected_option.get("reply", "✅ نظر شما ثبت شد.")
+
+        # 3. ثبت رای در دیتابیس (اختیاری)
+        await db.save_vote(survey_id, user_id, option_id)
+
+        # 4. نمایش پیام به کاربر
+        # روش اول: نمایش به صورت پاپ‌آپ (Alert)
+        # await callback.answer(response_text, show_alert=True)
+
+        # روش دوم: ارسال پیام در چت (مانند درخواست شما)
+        await callback.message.answer(f"🗳 **پاسخ:**\n{response_text}")
+        await callback.answer()  # بستن لودینگ دکمه
+
+    else:
+        await callback.answer("گزینه نامعتبر است.")
 
 
 # ---------------------------------------------------------

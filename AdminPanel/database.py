@@ -163,4 +163,25 @@ class DatabaseService:
         return result.deleted_count > 0
 
 
+    async def create_survey(self, survey_id: str, question: str, options: list):
+        """
+        ساخت یک نظرسنجی جدید.
+        options ساختاری مثل این دارد: [{'id': 'opt1', 'text': 'گزینه ۱', 'reply': 'پاسخ مخفی'}]
+        """
+        survey_data = {
+            "survey_id": survey_id,
+            "question": question,
+            "options": options,
+            "created_at": datetime.now(),
+            "votes": {}  # user_id: option_id
+        }
+        await self.db["surveys"].insert_one(survey_data)
+
+    async def get_survey(self, survey_id: str):
+        """دریافت اطلاعات کامل یک نظرسنجی"""
+        return await self.db["surveys"].find_one({"survey_id": survey_id})
+
+   
+
+
 db = DatabaseService()
