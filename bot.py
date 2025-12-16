@@ -288,8 +288,11 @@ async def cast_handler(message: Message, bot: Bot):
     cast_data = await db.get_cast_by_name(cast_name)
 
     if not cast_data:
-        # اگر دکمه در دیتابیس نبود
-        await message.answer("گزینه مورد نظر یافت نشد. لطفا از منو انتخاب کنید.")
+        keyboard = await kb_dynamic_casts(db)
+        await message.answer(
+            "متوجه نشدم! 🤔\nلطفاً یکی از گزینه‌های منو را انتخاب کنید:",
+            reply_markup=keyboard
+        )
         return
 
     # دریافت داده‌های خام از دیتابیس
@@ -351,49 +354,20 @@ async def cast_handler(message: Message, bot: Bot):
         await message.answer("خطا در بارگذاری برخی فایل‌ها.", reply_markup=keyboard)
 
 
-# @router.message(UserFlow.main_menu)
-# async def cast_handler(message: Message, bot: Bot):
-#     """
-#     Checks if the user clicked a button matching a cast name in the DB.
-#     """
-#     cast_name = message.text
-
-#     # 1. Search in DB
-#     cast_data = await db.get_cast_by_name(cast_name)
-
-#     if not cast_data:
-#         # If it's not a cast, maybe generic fallback or ignore
-#         await message.answer("گزینه مورد نظر یافت نشد. لطفا از منو انتخاب کنید.")
-#         return
-
-#     # 2. Fetch Source Data
-#     src_chat_id = cast_data.get("source_chat_id")
-#     src_msg_id = cast_data.get("source_message_id")
-
-#     if not src_chat_id or not src_msg_id:
-#         logger.error(f"Invalid data for cast: {cast_name}")
-#         await message.answer("مشکلی در بارگذاری فایل وجود دارد.")
-#         return
-
-#     # 3. Copy Message
-#     try:
-#         keyboard = await kb_dynamic_casts(db)
-
-#         await bot.copy_message(
-#             chat_id=message.from_user.id,
-#             from_chat_id=src_chat_id,
-#             message_id=src_msg_id,
-#             reply_markup=keyboard
-#         )
-
-#     except Exception as e:
-#         logger.error(f"Error copying cast message: {e}")
-#         # await message.answer("خطا در ارسال فایل. لطفا با پشتیبانی تماس بگیرید.")
-
+@router.message()
+async def default_handler(message: Message, state: FSMContext):
+    """
+    این تابع هر پیامی که توسط هندلرهای بالا گرفته نشده باشد را دریافت می‌کند.
+    در اینجا ما منطق شروع (cmd_start) را صدا می‌زنیم تا اگر کاربر ثبت‌نام کرده، منو را ببیند
+    و اگر ثبت‌نام نکرده، پروسه ثبت‌نام را طی کند.
+    """
+    await cmd_start(message, state)
 
 # ---------------------------------------------------------
 # MAIN ENTRY POINT
 # ---------------------------------------------------------
+
+
 async def main():
     bot = Bot(
         token=CONF["BOT_TOKEN"],
