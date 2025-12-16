@@ -24,7 +24,7 @@ logger = logging.getLogger("survey_reporter")
 
 CONF = {
     "ADMIN_BOT_TOKEN": os.getenv("ADMIN_BOT_TOKEN"),
-    "MONGO_URL": os.getenv("MONGO_URL", "mongodb://localhost:27017"),
+    "MONGODB_URL": os.getenv("MONGODB_URL", "mongodb://localhost:27017"),
     "DB_NAME": os.getenv("DB_NAME", "act_cast_db"),
     "REPORT_CHANNEL_ID": os.getenv("REPORT_CHANNEL_ID"),  # آیدی گروه آمار
     "INTERVAL": 3600,  # 1 Hour
@@ -41,7 +41,7 @@ if not CONF["ADMIN_BOT_TOKEN"] or not CONF["REPORT_CHANNEL_ID"]:
 
 class SurveyStatsReporter:
     def __init__(self):
-        self.client = AsyncIOMotorClient(CONF["MONGO_URL"])
+        self.client = AsyncIOMotorClient(CONF["MONGODB_URL"])
         self.db = self.client[CONF["DB_NAME"]]
         self.surveys = self.db["surveys"]
         self.users = self.db["users"]
