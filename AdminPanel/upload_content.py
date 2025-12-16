@@ -36,7 +36,8 @@ def kb_main_menu():
         keyboard=[
             [KeyboardButton(text="📤 آپلود محتوای جدید"),
              KeyboardButton(text="🗑 حذف محتوا")],
-            [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند")],
+            [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند"),
+             KeyboardButton(text="❌ حذف کلمه هوشمند")],
             [KeyboardButton(text="📢 ارسال همگانی"),
              KeyboardButton(text="📊 ایجاد نظرسنجی")]
         ],
