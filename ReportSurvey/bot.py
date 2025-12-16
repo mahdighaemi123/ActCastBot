@@ -106,13 +106,17 @@ class SurveyStatsReporter:
 
         async for user in cursor:
             uid = user.get("user_id")
-            full_name = (user.get("first_name", "") + " " +
-                         user.get("last_name", "")).strip() or "Unknown"
+            name = (user.get("name", "") + " " +
+                    user.get("name", "")).strip() or "Unknown"
+
             username = f"@{user.get('username')}" if user.get(
                 "username") else "No Username"
 
+            phone = user.get("phone", "")
+
             user_map[uid] = {
-                "full_name": full_name,
+                "name": name,
+                "phone": phone,
                 "username": username
             }
         return user_map
