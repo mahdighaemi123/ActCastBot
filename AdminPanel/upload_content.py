@@ -29,6 +29,16 @@ class AdminFlow(StatesGroup):
 # ---------------------------------------------------------
 
 
+def kb_uploading():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="✅ اتمام و ثبت نام")],  # دکمه جدید برای پایان
+            [KeyboardButton(text="❌ انصراف")]
+        ],
+        resize_keyboard=True
+    )
+
+
 def kb_cancel():
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="❌ انصراف")]],
@@ -83,58 +93,58 @@ async def cancel_action(message: Message, state: FSMContext):
 # --- Upload Flow ---
 
 
-@router.message(F.text == "📤 آپلود محتوای جدید")
-async def start_upload(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
-        return
+# @router.message(F.text == "📤 آپلود محتوای جدید")
+# async def start_upload(message: Message, state: FSMContext):
+#     if not is_admin(message.from_user.id):
+#         return
 
-    await message.answer(
-        "لطفاً محتوای مورد نظر (ویدیو، صدا، عکس، ویس یا متن) را همینجا ارسال کنید.",
-        reply_markup=kb_cancel()
-    )
-    await state.set_state(AdminFlow.waiting_for_content)
-
-
-@router.message(AdminFlow.waiting_for_content)
-async def process_content(message: Message, state: FSMContext):
-    try:
-        # کپی کردن فایل به کانال آرشیو
-        sent_message = await message.copy_to(chat_id=CONF["STORAGE_CHANNEL_ID"])
-
-        await state.update_data(
-            source_message_id=sent_message.message_id,
-            source_chat_id=CONF["STORAGE_CHANNEL_ID"]
-        )
-
-        await message.answer(
-            f"✅ محتوا با موفقیت در کانال ذخیره شد (ID: {sent_message.message_id}).\n\n"
-            "حالا لطفاً **نام دکمه** را وارد کنید:",
-            reply_markup=kb_cancel()
-        )
-        await state.set_state(AdminFlow.waiting_for_name)
-
-    except Exception as e:
-        logger.error(f"Failed to copy to channel: {e}")
-        await message.answer(f"❌ خطا در کپی کردن فایل به کانال.\nError: {e}")
+#     await message.answer(
+#         "لطفاً محتوای مورد نظر (ویدیو، صدا، عکس، ویس یا متن) را همینجا ارسال کنید.",
+#         reply_markup=kb_cancel()
+#     )
+#     await state.set_state(AdminFlow.waiting_for_content)
 
 
-@router.message(AdminFlow.waiting_for_name)
-async def process_name(message: Message, state: FSMContext):
-    button_name = message.text
-    data = await state.get_data()
+# @router.message(AdminFlow.waiting_for_content)
+# async def process_content(message: Message, state: FSMContext):
+#     try:
+#         # کپی کردن فایل به کانال آرشیو
+#         sent_message = await message.copy_to(chat_id=CONF["STORAGE_CHANNEL_ID"])
 
-    # ذخیره در دیتابیس
-    await db.add_new_cast(
-        name=button_name,
-        chat_id=data['source_chat_id'],
-        message_id=data['source_message_id']
-    )
+#         await state.update_data(
+#             source_message_id=sent_message.message_id,
+#             source_chat_id=CONF["STORAGE_CHANNEL_ID"]
+#         )
 
-    await state.clear()
-    await message.answer(
-        f"🎉 دکمه **'{button_name}'** ساخته شد.",
-        reply_markup=kb_main_menu()
-    )
+#         await message.answer(
+#             f"✅ محتوا با موفقیت در کانال ذخیره شد (ID: {sent_message.message_id}).\n\n"
+#             "حالا لطفاً **نام دکمه** را وارد کنید:",
+#             reply_markup=kb_cancel()
+#         )
+#         await state.set_state(AdminFlow.waiting_for_name)
+
+#     except Exception as e:
+#         logger.error(f"Failed to copy to channel: {e}")
+#         await message.answer(f"❌ خطا در کپی کردن فایل به کانال.\nError: {e}")
+
+
+# @router.message(AdminFlow.waiting_for_name)
+# async def process_name(message: Message, state: FSMContext):
+#     button_name = message.text
+#     data = await state.get_data()
+
+#     # ذخیره در دیتابیس
+#     await db.add_new_cast(
+#         name=button_name,
+#         chat_id=data['source_chat_id'],
+#         message_id=data['source_message_id']
+#     )
+
+#     await state.clear()
+#     await message.answer(
+#         f"🎉 دکمه **'{button_name}'** ساخته شد.",
+#         reply_markup=kb_main_menu()
+#     )
 
 # --- Delete Flow ---
 
@@ -217,3 +227,111 @@ async def close_menu_callback(callback):
     await callback.message.delete()
     # Optional: Send main menu again or just simple notification
     await callback.answer("منوی حذف بسته شد.")
+
+
+# ---------------------------------------------------------
+# UPLOAD FLOW (چندگانه)
+# ---------------------------------------------------------
+
+@router.message(F.text == "📤 آپلود محتوای جدید")
+async def start_upload(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    # پاکسازی داده‌های قبلی و ایجاد لیست خالی برای پیام‌ها
+    await state.set_data({"media_list": []})
+
+    await message.answer(
+        "📂 **حالت آپلود چندگانه**\n\n"
+        "محتواهای خود را یکی یکی (یا به صورت آلبوم) ارسال کنید.\n"
+        "هر چیزی که بفرستید به لیست اضافه می‌شود.\n\n"
+        "پس از اینکه تمام شد، دکمه **'✅ اتمام و ثبت نام'** را بزنید.",
+        reply_markup=kb_uploading()
+    )
+    await state.set_state(AdminFlow.waiting_for_content)
+
+
+# هندلر برای دکمه اتمام
+@router.message(AdminFlow.waiting_for_content, F.text == "✅ اتمام و ثبت نام")
+async def finish_upload_process(message: Message, state: FSMContext):
+    data = await state.get_data()
+    media_list = data.get("media_list", [])
+
+    if not media_list:
+        await message.answer("⚠️ هنوز هیچ محتوایی ارسال نکرده‌اید!", reply_markup=kb_uploading())
+        return
+
+    await message.answer(
+        f"✅ تعداد **{len(media_list)}** محتوا دریافت شد.\n\n"
+        "حالا لطفاً **نام دکمه** را وارد کنید:",
+        reply_markup=kb_cancel()
+    )
+    await state.set_state(AdminFlow.waiting_for_name)
+
+
+# هندلر دریافت فایل‌ها (عکس، ویدیو، متن و ...)
+@router.message(AdminFlow.waiting_for_content)
+async def process_content_step(message: Message, state: FSMContext):
+    # اگر کاربر دکمه انصراف را زد (چون هندلر متن عمومی است باید چک شود)
+    if message.text == "❌ انصراف":
+        await state.clear()
+        await message.answer("عملیات لغو شد.", reply_markup=kb_main_menu())
+        return
+
+    try:
+        # کپی کردن فایل به کانال آرشیو
+        sent_message = await message.copy_to(chat_id=CONF["STORAGE_CHANNEL_ID"])
+
+        # دریافت لیست فعلی از حافظه
+        data = await state.get_data()
+        media_list = data.get("media_list", [])
+
+        # اضافه کردن مشخصات پیام جدید به لیست
+        # ما هم چت آیدی و هم مسیج آیدی را نگه می‌داریم
+        media_list.append({
+            'message_id': sent_message.message_id,
+            'chat_id': CONF["STORAGE_CHANNEL_ID"]
+        })
+
+        # بروزرسانی حافظه
+        await state.update_data(media_list=media_list)
+
+        await message.answer(
+            f"➕ فایل شماره {len(media_list)} اضافه شد.\n"
+            "فایل بعدی را بفرستید یا روی 'اتمام' کلیک کنید.",
+            reply_markup=kb_uploading()
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to copy to channel: {e}")
+        await message.answer(f"❌ خطا در کپی کردن فایل به کانال.\nError: {e}")
+
+
+@router.message(AdminFlow.waiting_for_name)
+async def process_name(message: Message, state: FSMContext):
+    button_name = message.text
+    data = await state.get_data()
+    media_list = data.get("media_list", [])
+
+    # نکته مهم: دیتابیس شما باید قابلیت ذخیره لیست را داشته باشد
+    # در اینجا ما لیست را به صورت JSON (متن) تبدیل می‌کنیم تا در یک فیلد ذخیره شود
+    import json
+    serialized_data = json.dumps(media_list)
+
+    # ذخیره در دیتابیس
+    # فرض بر این است که تابع add_new_cast شما الان یک رشته طولانی (JSON) را قبول می‌کند
+    # یا باید ساختار دیتابیس را تغییر دهید تا لیست را ساپورت کند
+    await db.add_new_cast(
+        name=button_name,
+        # اینجا به جای message_id تکی، کل داده سریالایز شده را می‌فرستیم
+        # یا اگر دیتابیس فیلد جداگانه دارد، آن را هندل کنید
+        message_id=serialized_data,
+        # این شاید دیگر نیاز نباشد چون در لیست هست
+        chat_id=CONF["STORAGE_CHANNEL_ID"]
+    )
+
+    await state.clear()
+    await message.answer(
+        f"🎉 مجموعه **'{button_name}'** با {len(media_list)} فایل ساخته شد.",
+        reply_markup=kb_main_menu()
+    )

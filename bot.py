@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 from typing import Dict, Optional
-
+import json
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -271,11 +271,16 @@ async def cmd_reset(message: types.Message, state: FSMContext):
 # GENERIC CAST HANDLER
 # ---------------------------------------------------------
 
+# ---------------------------------------------------------
+# GENERIC CAST HANDLER (UPDATED FOR MULTI-CONTENT)
+# ---------------------------------------------------------
+
 
 @router.message(UserFlow.main_menu)
 async def cast_handler(message: Message, bot: Bot):
     """
     Checks if the user clicked a button matching a cast name in the DB.
+    Handles both single messages and multi-message (albums/lists).
     """
     cast_name = message.text
 
@@ -283,33 +288,107 @@ async def cast_handler(message: Message, bot: Bot):
     cast_data = await db.get_cast_by_name(cast_name)
 
     if not cast_data:
-        # If it's not a cast, maybe generic fallback or ignore
+        # اگر دکمه در دیتابیس نبود
         await message.answer("گزینه مورد نظر یافت نشد. لطفا از منو انتخاب کنید.")
         return
 
-    # 2. Fetch Source Data
-    src_chat_id = cast_data.get("source_chat_id")
-    src_msg_id = cast_data.get("source_message_id")
+    # دریافت داده‌های خام از دیتابیس
+    raw_msg_id = cast_data.get("source_message_id")
+    # برای پشتیبانی از دیتای قدیمی
+    raw_chat_id = cast_data.get("source_chat_id")
 
-    if not src_chat_id or not src_msg_id:
-        logger.error(f"Invalid data for cast: {cast_name}")
-        await message.answer("مشکلی در بارگذاری فایل وجود دارد.")
+    content_list = []
+
+    # 2. تشخیص فرمت (تکی یا چندتایی)
+    try:
+        # اگر فرمت جدید (متن JSON) باشد:
+        if isinstance(raw_msg_id, str) and raw_msg_id.startswith("["):
+            content_list = json.loads(raw_msg_id)
+        else:
+            # اگر فرمت قدیمی (عدد تکی) باشد:
+            content_list = [{"message_id": raw_msg_id, "chat_id": raw_chat_id}]
+    except Exception as e:
+        logger.error(f"Error parsing content data: {e}")
+        # تلاش برای بازگشت به حالت تکی در صورت خرابی JSON
+        content_list = [{"message_id": raw_msg_id, "chat_id": raw_chat_id}]
+
+    if not content_list:
+        await message.answer("محتوایی برای نمایش وجود ندارد.")
         return
 
-    # 3. Copy Message
-    try:
-        keyboard = await kb_dynamic_casts(db)
+    # دریافت کیبورد اصلی برای نمایش در پایان
+    keyboard = await kb_dynamic_casts(db)
 
-        await bot.copy_message(
-            chat_id=message.from_user.id,
-            from_chat_id=src_chat_id,
-            message_id=src_msg_id,
-            reply_markup=keyboard
-        )
+    # 3. ارسال پیام‌ها به ترتیب
+    try:
+        total_items = len(content_list)
+
+        for index, item in enumerate(content_list):
+            # بررسی اینکه آیا این آخرین پیام است؟
+            is_last_message = (index == total_items - 1)
+
+            # کیبورد را فقط به آخرین پیام می‌چسبانیم تا کاربر سردرگم نشود
+            reply_markup = keyboard if is_last_message else None
+
+            msg_id = item.get('message_id')
+            chat_id = item.get('chat_id')
+
+            if msg_id and chat_id:
+                await bot.copy_message(
+                    chat_id=message.from_user.id,
+                    from_chat_id=chat_id,
+                    message_id=msg_id,
+                    reply_markup=reply_markup
+                )
+
+                # یک مکث کوتاه برای جلوگیری از به هم ریختن ترتیب ارسال در تلگرام
+                if not is_last_message:
+                    await asyncio.sleep(0.1)
 
     except Exception as e:
         logger.error(f"Error copying cast message: {e}")
-        # await message.answer("خطا در ارسال فایل. لطفا با پشتیبانی تماس بگیرید.")
+        # در صورت بروز خطا، کیبورد را مجدد ارسال می‌کنیم تا کاربر گیر نکند
+        await message.answer("خطا در بارگذاری برخی فایل‌ها.", reply_markup=keyboard)
+
+
+# @router.message(UserFlow.main_menu)
+# async def cast_handler(message: Message, bot: Bot):
+#     """
+#     Checks if the user clicked a button matching a cast name in the DB.
+#     """
+#     cast_name = message.text
+
+#     # 1. Search in DB
+#     cast_data = await db.get_cast_by_name(cast_name)
+
+#     if not cast_data:
+#         # If it's not a cast, maybe generic fallback or ignore
+#         await message.answer("گزینه مورد نظر یافت نشد. لطفا از منو انتخاب کنید.")
+#         return
+
+#     # 2. Fetch Source Data
+#     src_chat_id = cast_data.get("source_chat_id")
+#     src_msg_id = cast_data.get("source_message_id")
+
+#     if not src_chat_id or not src_msg_id:
+#         logger.error(f"Invalid data for cast: {cast_name}")
+#         await message.answer("مشکلی در بارگذاری فایل وجود دارد.")
+#         return
+
+#     # 3. Copy Message
+#     try:
+#         keyboard = await kb_dynamic_casts(db)
+
+#         await bot.copy_message(
+#             chat_id=message.from_user.id,
+#             from_chat_id=src_chat_id,
+#             message_id=src_msg_id,
+#             reply_markup=keyboard
+#         )
+
+#     except Exception as e:
+#         logger.error(f"Error copying cast message: {e}")
+#         # await message.answer("خطا در ارسال فایل. لطفا با پشتیبانی تماس بگیرید.")
 
 
 # ---------------------------------------------------------

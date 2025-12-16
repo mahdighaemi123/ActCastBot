@@ -121,8 +121,6 @@ def generate_excel(users_data, filename):
 
     if 'phone' in df.columns:
         df['phone'] = df['phone'].apply(standardize_phone_number)
-        df['phone'] = df['phone'].replace(
-            {None: "وارد نشده", " ": "وارد نشده"})
 
     # Save to Excel
     df.to_excel(filename, index=False, engine='openpyxl')
