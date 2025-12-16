@@ -39,7 +39,6 @@ def kb_main_menu():
             [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند")],
             [KeyboardButton(text="📢 ارسال همگانی"),
              KeyboardButton(text="📊 ایجاد نظرسنجی")]
-
         ],
         resize_keyboard=True
     )
@@ -64,18 +63,6 @@ def kb_cancel():
         resize_keyboard=True
     )
 
-
-def kb_main_menu():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📢 ارسال همگانی")],
-            [KeyboardButton(text="📤 آپلود محتوای جدید"),
-             KeyboardButton(text="🗑 حذف محتوا")],
-            [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند"),
-             KeyboardButton(text="❌ حذف کلمه هوشمند")],
-        ],
-        resize_keyboard=True
-    )
 
 # ---------------------------------------------------------
 # HANDLERS (منطق برنامه)

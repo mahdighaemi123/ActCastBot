@@ -222,7 +222,6 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
 
     elif text == "ارسال تستی":
         await message.answer("🧪 در حال ارسال به کاربران تستی...")
-        # فرض بر اینکه این متد در database.py وجود دارد
         target_users = await db.get_test_users()
         is_test_mode = True
 
@@ -253,7 +252,7 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
             start_time = time.perf_counter()
 
             # ارسال پیام
-            sent_msg = await bot.send_message(chat_id=u['user_id'], text=question, reply_markup=markup)
+            sent_msg = await main_bot.send_message(chat_id=u['user_id'], text=question, reply_markup=markup)
 
             # --- ذخیره لاگ پیام برای قابلیت حذف ---
             # متد save_broadcast_log باید در database.py باشد
