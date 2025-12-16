@@ -37,7 +37,9 @@ def kb_main_menu():
             [KeyboardButton(text="📤 آپلود محتوای جدید"),
              KeyboardButton(text="🗑 حذف محتوا")],
             [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند")],
-            [KeyboardButton(text="📢 ارسال همگانی")]
+            [KeyboardButton(text="📢 ارسال همگانی"),
+             KeyboardButton(text="📊 ایجاد نظرسنجی")]
+
         ],
         resize_keyboard=True
     )

@@ -179,7 +179,8 @@ async def finalize_survey_creation(message: Message, state: FSMContext):
     # کیبورد تصمیم‌گیری ادمین
     kb_confirm = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🚀 ارسال همگانی"), KeyboardButton(text="🧪 ارسال تستی")],
+            [KeyboardButton(text="ارسال همگانی"),
+             KeyboardButton(text="ارسال تستی")],
             [KeyboardButton(text="💾 فقط ذخیره (بدون ارسال)")],
             [KeyboardButton(text="❌ لغو")]
         ],
@@ -187,6 +188,7 @@ async def finalize_survey_creation(message: Message, state: FSMContext):
     )
     await message.answer("یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=kb_confirm)
     await state.set_state(SurveyFlow.confirm_send)
+
 
 @survey_router.message(SurveyFlow.confirm_send)
 async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
@@ -213,18 +215,19 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
     # تعیین گیرندگان بر اساس دکمه زده شده
     target_users = []
     is_test_mode = False
-    
-    if text == "🚀 ارسال همگانی":
+
+    if text == "ارسال همگانی":
         await message.answer("⏳ در حال جمع‌آوری کاربران و شروع ارسال همگانی...")
         target_users = await db.users.find({}, {"user_id": 1}).to_list(length=None)
-        
-    elif text == "🧪 ارسال تستی":
+
+    elif text == "ارسال تستی":
         await message.answer("🧪 در حال ارسال به کاربران تستی...")
-        target_users = await db.get_test_users() # فرض بر اینکه این متد در database.py وجود دارد
+        # فرض بر اینکه این متد در database.py وجود دارد
+        target_users = await db.get_test_users()
         is_test_mode = True
-    
+
     else:
-        return # دستور ناشناخته
+        return  # دستور ناشناخته
 
     if not target_users:
         await message.answer("⚠️ کاربری برای ارسال یافت نشد.")
@@ -233,13 +236,14 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
     # ساخت دکمه‌های شیشه‌ای نظرسنجی
     builder = InlineKeyboardBuilder()
     for opt in options:
-        builder.button(text=opt['text'], callback_data=f"surv:{survey_id}:{opt['id']}")
+        builder.button(text=opt['text'],
+                       callback_data=f"surv:{survey_id}:{opt['id']}")
     builder.adjust(1)
     markup = builder.as_markup()
 
     # تولید شناسه یکتا برای این نوبت ارسال (Batch ID)
     batch_id = str(uuid.uuid4())
-    
+
     count = 0
     blocked = 0
 
@@ -247,26 +251,26 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
     for u in target_users:
         try:
             start_time = time.perf_counter()
-            
+
             # ارسال پیام
             sent_msg = await bot.send_message(chat_id=u['user_id'], text=question, reply_markup=markup)
-            
+
             # --- ذخیره لاگ پیام برای قابلیت حذف ---
             # متد save_broadcast_log باید در database.py باشد
             await db.save_broadcast_log(
-                batch_id=batch_id, 
-                user_id=u['user_id'], 
+                batch_id=batch_id,
+                user_id=u['user_id'],
                 message_id=sent_msg.message_id
             )
             # ---------------------------------------
-            
+
             count += 1
-            
+
             # تاخیر کوچک برای جلوگیری از فلود (فقط در حالت همگانی مهم‌تر است)
             elapsed = time.perf_counter() - start_time
             if elapsed < 0.05:
                 await asyncio.sleep(max(0, 0.05 - elapsed))
-                
+
         except Exception as e:
             # logger.error(f"Failed to send: {e}")
             blocked += 1
@@ -281,7 +285,8 @@ async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
 
     # ساخت دکمه حذف برای همین بچ
     del_markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🗑 حذف پیام‌های این ارسال", callback_data=f"del_batch:{batch_id}")]
+        [InlineKeyboardButton(text="🗑 حذف پیام‌های این ارسال",
+                              callback_data=f"del_batch:{batch_id}")]
     ])
 
     await message.answer(summary, reply_markup=del_markup)
