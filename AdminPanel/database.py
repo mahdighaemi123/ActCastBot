@@ -11,6 +11,7 @@ class DatabaseService:
         self.casts = self.db["casts"]
         self.users = self.db["users"]
         self.broadcast_logs = self.db["broadcast_logs"]
+        self.keyword_replies = self.db["keyword_replies"]
 
     async def add_new_cast(self, name: str, chat_id: int, message_id: int):
         new_cast = {
@@ -118,6 +119,51 @@ class DatabaseService:
 
         cursor = self.users.find(query, {"user_id": 1})
         return await cursor.to_list(length=None)
+
+
+    async def add_keyword_reply(self, keyword: str, content_list: list):
+        """
+        ذخیره یک کلمه کلیدی و لیست پیام‌های مربوط به آن.
+        keyword: کلمه ماشه (مثل '33')
+        content_list: لیستی از دیکشنری‌ها [{'message_id': 1, 'chat_id': 100}, ...]
+        """
+        document = {
+            "keyword": keyword,
+            "content": content_list, # لیست را مستقیم ذخیره می‌کنیم
+            "updated_at": datetime.now()
+        }
+        # استفاده از upsert برای اینکه اگر کلمه قبلا بود، آپدیت شود
+        await self.keyword_replies.update_one(
+            {"keyword": keyword},
+            {"$set": document},
+            upsert=True
+        )
+
+    async def get_keyword_reply(self, keyword: str):
+        """
+        جستجو بر اساس کلمه کلیدی و بازگرداندن لیست پیام‌ها
+        """
+        # جستجوی دقیق (Exact Match).
+        # نکته: در فایل main بهتر است ورودی کاربر را .strip() کنید
+        doc = await self.keyword_replies.find_one({"keyword": keyword})
+        
+        if doc:
+            return doc.get("content", [])
+        return None
+
+    async def get_all_keywords(self):
+        """
+        لیست تمام کلمات کلیدی تعریف شده (برای نمایش به ادمین یا حذف)
+        """
+        cursor = self.keyword_replies.find({}, {"keyword": 1})
+        return await cursor.to_list(length=None)
+
+    async def delete_keyword_reply(self, keyword: str):
+        """
+        حذف یک کلمه کلیدی
+        """
+        result = await self.keyword_replies.delete_one({"keyword": keyword})
+        return result.deleted_count > 0
 
 
 # ساخت یک آبجکت که در بقیه فایل‌ها استفاده شود

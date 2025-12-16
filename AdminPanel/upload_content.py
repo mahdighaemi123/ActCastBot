@@ -19,11 +19,28 @@ router = Router()
 # ---------------------------------------------------------
 
 
+# --- اضافه کردن به بخش STATES ---
 class AdminFlow(StatesGroup):
     waiting_for_content = State()
     waiting_for_name = State()
     waiting_for_delete = State()
+    # وضعیت‌های جدید برای سیستم پاسخ هوشمند
+    waiting_for_trigger_keyword = State()  # منتظر کلمه کلیدی (مثلا 33)
+    waiting_for_trigger_content = State()  # منتظر پیام‌های مربوط به آن
 
+# --- اضافه کردن به بخش KEYBOARDS ---
+
+
+def kb_main_menu():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📤 آپلود محتوای جدید"),
+             KeyboardButton(text="🗑 حذف محتوا")],
+            [KeyboardButton(text="🧠 تنظیم پاسخ هوشمند")],
+            [KeyboardButton(text="📢 ارسال همگانی")]
+        ],
+        resize_keyboard=True
+    )
 # ---------------------------------------------------------
 # KEYBOARDS (دکمه‌ها)
 # ---------------------------------------------------------
@@ -32,7 +49,7 @@ class AdminFlow(StatesGroup):
 def kb_uploading():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="✅ اتمام و ثبت نام")],  # دکمه جدید برای پایان
+            [KeyboardButton(text="✅ اتمام و ثبت")],  # دکمه جدید برای پایان
             [KeyboardButton(text="❌ انصراف")]
         ],
         resize_keyboard=True
@@ -89,64 +106,6 @@ async def cmd_server_time(message: Message):
 async def cancel_action(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("عملیات لغو شد. به منوی اصلی برگشتید.", reply_markup=kb_main_menu())
-
-# --- Upload Flow ---
-
-
-# @router.message(F.text == "📤 آپلود محتوای جدید")
-# async def start_upload(message: Message, state: FSMContext):
-#     if not is_admin(message.from_user.id):
-#         return
-
-#     await message.answer(
-#         "لطفاً محتوای مورد نظر (ویدیو، صدا، عکس، ویس یا متن) را همینجا ارسال کنید.",
-#         reply_markup=kb_cancel()
-#     )
-#     await state.set_state(AdminFlow.waiting_for_content)
-
-
-# @router.message(AdminFlow.waiting_for_content)
-# async def process_content(message: Message, state: FSMContext):
-#     try:
-#         # کپی کردن فایل به کانال آرشیو
-#         sent_message = await message.copy_to(chat_id=CONF["STORAGE_CHANNEL_ID"])
-
-#         await state.update_data(
-#             source_message_id=sent_message.message_id,
-#             source_chat_id=CONF["STORAGE_CHANNEL_ID"]
-#         )
-
-#         await message.answer(
-#             f"✅ محتوا با موفقیت در کانال ذخیره شد (ID: {sent_message.message_id}).\n\n"
-#             "حالا لطفاً **نام دکمه** را وارد کنید:",
-#             reply_markup=kb_cancel()
-#         )
-#         await state.set_state(AdminFlow.waiting_for_name)
-
-#     except Exception as e:
-#         logger.error(f"Failed to copy to channel: {e}")
-#         await message.answer(f"❌ خطا در کپی کردن فایل به کانال.\nError: {e}")
-
-
-# @router.message(AdminFlow.waiting_for_name)
-# async def process_name(message: Message, state: FSMContext):
-#     button_name = message.text
-#     data = await state.get_data()
-
-#     # ذخیره در دیتابیس
-#     await db.add_new_cast(
-#         name=button_name,
-#         chat_id=data['source_chat_id'],
-#         message_id=data['source_message_id']
-#     )
-
-#     await state.clear()
-#     await message.answer(
-#         f"🎉 دکمه **'{button_name}'** ساخته شد.",
-#         reply_markup=kb_main_menu()
-#     )
-
-# --- Delete Flow ---
 
 
 def kb_delete_list(casts_list):
@@ -245,14 +204,14 @@ async def start_upload(message: Message, state: FSMContext):
         "📂 **حالت آپلود چندگانه**\n\n"
         "محتواهای خود را یکی یکی (یا به صورت آلبوم) ارسال کنید.\n"
         "هر چیزی که بفرستید به لیست اضافه می‌شود.\n\n"
-        "پس از اینکه تمام شد، دکمه **'✅ اتمام و ثبت نام'** را بزنید.",
+        "پس از اینکه تمام شد، دکمه **'✅ اتمام و ثبت'** را بزنید.",
         reply_markup=kb_uploading()
     )
     await state.set_state(AdminFlow.waiting_for_content)
 
 
 # هندلر برای دکمه اتمام
-@router.message(AdminFlow.waiting_for_content, F.text == "✅ اتمام و ثبت نام")
+@router.message(AdminFlow.waiting_for_content, F.text == "✅ اتمام و ثبت")
 async def finish_upload_process(message: Message, state: FSMContext):
     data = await state.get_data()
     media_list = data.get("media_list", [])
@@ -335,3 +294,91 @@ async def process_name(message: Message, state: FSMContext):
         f"🎉 مجموعه **'{button_name}'** با {len(media_list)} فایل ساخته شد.",
         reply_markup=kb_main_menu()
     )
+
+
+# ---------------------------------------------------------
+# FLOW: پاسخ هوشمند (Keyword Reply)
+# ---------------------------------------------------------
+
+@router.message(F.text == "🧠 تنظیم پاسخ هوشمند")
+async def start_smart_reply(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    await message.answer(
+        "📝 لطفاً **کلمه کلیدی** یا عددی که کاربر باید بفرستد را وارد کنید.\n"
+        "مثال: `33` یا `سلام` یا `قیمت`",
+        reply_markup=kb_cancel()
+    )
+    await state.set_state(AdminFlow.waiting_for_trigger_keyword)
+
+
+@router.message(AdminFlow.waiting_for_trigger_keyword)
+async def process_keyword_input(message: Message, state: FSMContext):
+    if message.text == "❌ انصراف":
+        await state.clear()
+        await message.answer("لغو شد.", reply_markup=kb_main_menu())
+        return
+
+    keyword = message.text.strip()
+
+    # ذخیره کلمه کلیدی و ایجاد لیست خالی برای پیام‌ها
+    await state.update_data(target_keyword=keyword, media_list=[])
+
+    await message.answer(
+        f"✅ کلمه **'{keyword}'** انتخاب شد.\n\n"
+        "حالا پیام‌ها، عکس‌ها یا ویس‌هایی که می‌خواهید در جواب ارسال شود را یکی‌یکی بفرستید.\n"
+        "در پایان دکمه **'✅ اتمام و ثبت'** را بزنید.",
+        reply_markup=kb_uploading()  # استفاده از همان کیبورد آپلود قبلی
+    )
+    await state.set_state(AdminFlow.waiting_for_trigger_content)
+
+
+@router.message(AdminFlow.waiting_for_trigger_content)
+async def process_smart_content(message: Message, state: FSMContext):
+    # اگر کاربر دکمه اتمام را زد
+    if message.text == "✅ اتمام و ثبت":
+        data = await state.get_data()
+        keyword = data.get("target_keyword")
+        media_list = data.get("media_list", [])
+
+        if not media_list:
+            await message.answer("⚠️ پیامی دریافت نشد.", reply_markup=kb_uploading())
+            return
+
+        # ذخیره در دیتابیس (تابع جدیدی که در بالا گفتیم)
+        await db.add_keyword_reply(keyword=keyword, content_list=media_list)
+
+        await state.clear()
+        await message.answer(
+            f"🎉 تنظیمات ذخیره شد.\n"
+            f"هرکس بنویسد **{keyword}**، ربات {len(media_list)} پیام برایش ارسال می‌کند.",
+            reply_markup=kb_main_menu()
+        )
+        return
+
+    # اگر کاربر انصراف زد
+    if message.text == "❌ انصراف":
+        await state.clear()
+        await message.answer("لغو شد.", reply_markup=kb_main_menu())
+        return
+
+    # دریافت پیام و کپی به کانال آرشیو (مشابه سیستم قبلی)
+    try:
+        sent_msg = await message.copy_to(chat_id=CONF["STORAGE_CHANNEL_ID"])
+
+        data = await state.get_data()
+        media_list = data.get("media_list", [])
+
+        media_list.append({
+            'message_id': sent_msg.message_id,
+            'chat_id': CONF["STORAGE_CHANNEL_ID"]
+        })
+
+        await state.update_data(media_list=media_list)
+
+        await message.answer(f"➕ پیام #{len(media_list)} دریافت شد.", reply_markup=kb_uploading())
+
+    except Exception as e:
+        logger.error(f"Error copying msg: {e}")
+        await message.answer("خطا در ذخیره پیام.")
