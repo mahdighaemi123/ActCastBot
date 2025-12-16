@@ -181,7 +181,7 @@ async def finalize_survey_creation(message: Message, state: FSMContext):
         keyboard=[
             [KeyboardButton(text="ارسال همگانی"),
              KeyboardButton(text="ارسال تستی")],
-            [KeyboardButton(text="❌ لغو")]
+            [KeyboardButton(text="لغو")]
         ],
         resize_keyboard=True
     )
@@ -192,7 +192,7 @@ async def finalize_survey_creation(message: Message, state: FSMContext):
 @survey_router.message(SurveyFlow.confirm_send)
 async def confirm_survey_send(message: Message, state: FSMContext, bot: Bot):
     text = message.text
-    if text == "❌ لغو":
+    if text == "لغو":
         await state.clear()
         await message.answer("عملیات لغو شد.", reply_markup=kb_main_menu)
         return
