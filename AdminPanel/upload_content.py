@@ -305,6 +305,16 @@ async def start_smart_reply(message: Message, state: FSMContext):
     await state.set_state(AdminFlow.waiting_for_trigger_keyword)
 
 
+def convert_to_english_digits(text):
+    """Convert Persian digits in the input text to English digits."""
+    if not isinstance(text, str):
+        return text
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    english_digits = '0123456789'
+    trans_table = str.maketrans(persian_digits, english_digits)
+    return text.translate(trans_table)
+
+
 @router.message(AdminFlow.waiting_for_trigger_keyword)
 async def process_keyword_input(message: Message, state: FSMContext):
     if message.text == "❌ انصراف":
@@ -312,7 +322,7 @@ async def process_keyword_input(message: Message, state: FSMContext):
         await message.answer("لغو شد.", reply_markup=kb_main_menu())
         return
 
-    keyword = message.text.strip()
+    keyword = convert_to_english_digits(message.text.strip())
 
     # ذخیره کلمه کلیدی و ایجاد لیست خالی برای پیام‌ها
     await state.update_data(target_keyword=keyword, media_list=[])
