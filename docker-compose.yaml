@@ -4,6 +4,7 @@ name: actcast_bot
 services:
   bot:
     container_name: tg_actcast_bot
+    restart: unless-stopped
     build: .
     env_file:
       - .env
@@ -15,6 +16,7 @@ services:
 
   admin_bot:
     container_name: tg_actcast_admin_bot
+    restart: unless-stopped
     build: ./AdminPanel
     env_file:
       - .env
@@ -23,6 +25,7 @@ services:
 
   backup_bot:
     container_name: tg_actcast_backup_bot
+    restart: unless-stopped
     build: ./Backup
     env_file:
       - .env
@@ -31,6 +34,7 @@ services:
 
   report_bot:
     container_name: tg_actcast_report_bot
+    restart: unless-stopped
     build: ./Report
     env_file:
       - .env
@@ -39,6 +43,7 @@ services:
 
   report_survey_bot:
     container_name: tg_actcast_report_survey_bot
+    restart: unless-stopped
     build: ./ReportSurvey
     env_file:
       - .env
