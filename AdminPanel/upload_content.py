@@ -111,7 +111,7 @@ def kb_delete_list(casts_list):
         # Note: Telegram callback_data has a 64-byte limit.
         # If names are very long, it's better to use IDs from the database.
         builder.button(text=f"❌ {cast['name']}",
-                       callback_data=f"del:{cast['name']}")
+                       callback_data=f"del:{cast['_id']}")  # Using ID for safety
 
     # Add a cancel/close button at the bottom
     builder.button(text="🔙 بستن منو", callback_data="close_menu")
@@ -126,9 +126,9 @@ def kb_delete_list(casts_list):
 @router.message(F.text == "🗑 حذف محتوا")
 async def start_delete(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
+        await message.answer("⛔ شما اجازه دسترسی به این ربات را ندارید.")
         return
 
-    # Clear any previous states just in case
     await state.clear()
 
     casts = await db.get_all_cast_names()
@@ -151,7 +151,7 @@ async def process_delete_callback(callback):
     cast_name = callback.data.split(":", 1)[1]
 
     # Delete from database
-    deleted = await db.delete_cast(cast_name)
+    deleted = await db.delete_cast_with_id(cast_name)
 
     if deleted:
         # Show a small popup notification

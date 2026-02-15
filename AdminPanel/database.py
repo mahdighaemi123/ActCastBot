@@ -30,8 +30,12 @@ class DatabaseService:
         result = await self.casts.delete_one({"name": name})
         return result.deleted_count > 0
 
+    async def delete_cast_with_id(self, _id: str):
+        result = await self.casts.delete_one({"_id": _id})
+        return result.deleted_count > 0
+    
     async def get_all_cast_names(self):
-        cursor = self.casts.find({}, {"name": 1})
+        cursor = self.casts.find({}, {"name": 1, "_id": 1})
         return await cursor.to_list(length=None)
 
     async def get_users_in_range(self, start_ts: float, end_ts: float):
