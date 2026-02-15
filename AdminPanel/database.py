@@ -2,7 +2,7 @@ import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import CONF
 from datetime import datetime
-
+from bson import ObjectId
 
 class DatabaseService:
     def __init__(self):
@@ -13,7 +13,7 @@ class DatabaseService:
         self.broadcast_logs = self.db["broadcast_logs"]
         self.keyword_replies = self.db["keyword_replies"]
 
-    async def add_new_cast(self, name: str, chat_id: int, message_id: int):
+    async def add_new_cast(self, name: str, chat_id: int, message_id: str):
         new_cast = {
             "name": name,
             "source_chat_id": chat_id,
@@ -31,8 +31,26 @@ class DatabaseService:
         return result.deleted_count > 0
 
     async def delete_cast_with_id(self, _id: str):
-        result = await self.casts.delete_one({"_id": _id})
-        return result.deleted_count > 0
+        try:
+            obj_id = ObjectId(_id)
+            result = await self.casts.delete_one({"_id": obj_id})
+
+            return result.deleted_count > 0
+        except Exception as e:
+            print("Delete error:", e)
+            return False
+
+    async def get_all_cast(self):
+        cursor = self.casts.find({}, {"name": 1})
+        result = []
+
+        async for doc in cursor:
+            result.append({
+                "_id": str(doc["_id"]),
+                "name": doc["name"]
+            })
+
+        return result
     
     async def get_all_cast_names(self):
         cursor = self.casts.find({}, {"name": 1, "_id": 1})

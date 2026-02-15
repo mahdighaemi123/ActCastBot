@@ -5,10 +5,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import CommandStart
 import datetime
-# ایمپورت کردن موارد لازم از فایل‌های دیگر
 from config import CONF, is_admin
 from database import db
-from aiogram.utils.keyboard import InlineKeyboardBuilder  # <--- New
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 import logging
 
 logger = logging.getLogger("admin_bot")
@@ -101,23 +100,20 @@ async def cancel_action(message: Message, state: FSMContext):
 
 
 def kb_delete_list(casts_list):
-    """
-    Creates an inline keyboard with a delete button for each item.
-    """
+
     builder = InlineKeyboardBuilder()
 
     for cast in casts_list:
-        # callback_data format: "del:<name>"
-        # Note: Telegram callback_data has a 64-byte limit.
-        # If names are very long, it's better to use IDs from the database.
-        builder.button(text=f"❌ {cast['name']}",
-                       callback_data=f"del:{cast['_id']}")  # Using ID for safety
 
-    # Add a cancel/close button at the bottom
+        builder.button(
+            text=f"❌ {cast['name']}",
+            callback_data=f"del:{str(cast['_id'])}"
+        )
+
     builder.button(text="🔙 بستن منو", callback_data="close_menu")
 
-    # Adjust layout: 1 button per row
     builder.adjust(1)
+
     return builder.as_markup()
 
 
@@ -131,7 +127,7 @@ async def start_delete(message: Message, state: FSMContext):
 
     await state.clear()
 
-    casts = await db.get_all_cast_names()
+    casts = await db.get_all_cast()
     if not casts:
         await message.answer("📭 لیست خالی است. هیچ محتوایی برای حذف وجود ندارد.")
         return
@@ -147,26 +143,19 @@ async def process_delete_callback(callback):
     """
     Handles the click on a delete button.
     """
-    # Extract name from callback_data (remove "del:" prefix)
-    cast_name = callback.data.split(":", 1)[1]
-
-    # Delete from database
-    deleted = await db.delete_cast_with_id(cast_name)
+    cast_id = callback.data.split(":", 1)[1]
+    deleted = await db.delete_cast_with_id(cast_id)
+    casts = await db.get_all_cast()
 
     if deleted:
-        # Show a small popup notification
-        await callback.answer(f"✅ '{cast_name}' حذف شد.", show_alert=False)
+        await callback.answer(f"✅ '{cast_id}' حذف شد.", show_alert=False)
 
-        # Refresh the list in the message
-        casts = await db.get_all_cast_names()
         if casts:
             await callback.message.edit_reply_markup(reply_markup=kb_delete_list(casts))
         else:
             await callback.message.edit_text("🗑 تمام محتواها حذف شدند.")
     else:
         await callback.answer("❌ خطا: این آیتم یافت نشد یا قبلاً حذف شده است.", show_alert=True)
-        # Refresh the list anyway to remove the bad button
-        casts = await db.get_all_cast_names()
         await callback.message.edit_reply_markup(reply_markup=kb_delete_list(casts))
 
 
@@ -264,20 +253,12 @@ async def process_name(message: Message, state: FSMContext):
     data = await state.get_data()
     media_list = data.get("media_list", [])
 
-    # نکته مهم: دیتابیس شما باید قابلیت ذخیره لیست را داشته باشد
-    # در اینجا ما لیست را به صورت JSON (متن) تبدیل می‌کنیم تا در یک فیلد ذخیره شود
     import json
     serialized_data = json.dumps(media_list)
 
-    # ذخیره در دیتابیس
-    # فرض بر این است که تابع add_new_cast شما الان یک رشته طولانی (JSON) را قبول می‌کند
-    # یا باید ساختار دیتابیس را تغییر دهید تا لیست را ساپورت کند
     await db.add_new_cast(
         name=button_name,
-        # اینجا به جای message_id تکی، کل داده سریالایز شده را می‌فرستیم
-        # یا اگر دیتابیس فیلد جداگانه دارد، آن را هندل کنید
         message_id=serialized_data,
-        # این شاید دیگر نیاز نباشد چون در لیست هست
         chat_id=CONF["STORAGE_CHANNEL_ID"]
     )
 
